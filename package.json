@@ -1,10 +1,10 @@
 {
   "name": "fwcloud-websrv",
   "version": "0.0.1",
-  "description": "",
-  "author": "",
-  "private": true,
-  "license": "UNLICENSED",
+  "description": "FWCloud web server",
+  "author": "SOLTECSIS (https://soltecsis.com)",
+  "private": false,
+  "license": "GNU AFFERO GENERAL PUBLIC LICENSE Version 3, 19 November 2007",
   "scripts": {
     "prebuild": "rimraf dist",
     "build": "nest build",
