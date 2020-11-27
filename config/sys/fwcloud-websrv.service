@@ -1,0 +1,14 @@
+[Unit]
+Description=fwcloud-websrv
+
+[Service]
+ExecStart=/usr/bin/npm start
+ExecStop=/usr/bin/npm run stop
+WorkingDirectory=/opt/fwcloud/websrv/
+SyslogIdentifier=fwcloud-websrv
+User=fwcloud
+Group=fwcloud
+Type=forking
+
+[Install]
+WantedBy=multi-user.target
