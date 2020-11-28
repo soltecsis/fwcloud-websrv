@@ -9,16 +9,18 @@
     "prebuild": "rimraf dist",
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
-    "start": "nest start",
+    "start": "npm run start:prod",
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
-    "start:prod": "node dist/main",
+    "start:prod": "node dist/src/main & echo $! > .pid",
+    "stop": "if [ -f \".pid\" ]; then PID=$(cat .pid); EXISTS=`ps axw | awk '{print $1}' | grep \"^${PID}$\"`; if [ \"$EXISTS\" ]; then kill $PID; fi; rm \".pid\"; fi",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "jest --config ./test/jest-e2e.json"
+    "test:e2e": "jest --config ./test/jest-e2e.json",
+    "update": "npm run stop && git pull && npm install && npm run build && npm run start"
   },
   "dependencies": {
     "@nestjs/common": "^7.5.1",
@@ -29,7 +31,8 @@
     "http-proxy": "^1.18.1",
     "reflect-metadata": "^0.1.13",
     "rimraf": "^3.0.2",
-    "rxjs": "^6.6.3"
+    "rxjs": "^6.6.3",
+    "winston": "^3.3.3"
   },
   "devDependencies": {
     "@nestjs/cli": "^7.5.1",

@@ -20,12 +20,21 @@
     along with FWCloud.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Module } from '@nestjs/common';
-import { LogsModule } from 'src/logs/logs.module';
-import { WebsrvService } from './websrv.service';
+import { Test, TestingModule } from '@nestjs/testing';
+import { LogsService } from './logs.service';
 
-@Module({
-  providers: [WebsrvService],
-  imports: [LogsModule]
-})
-export class WebsrvModule {}
+describe('LogsService', () => {
+  let service: LogsService;
+
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [LogsService],
+    }).compile();
+
+    service = module.get<LogsService>(LogsService);
+  });
+
+  it('should be defined', () => {
+    expect(service).toBeDefined();
+  });
+});

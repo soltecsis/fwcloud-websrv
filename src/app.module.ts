@@ -23,6 +23,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { WebsrvModule } from './websrv/websrv.module';
+import { LogsModule } from './logs/logs.module';
 
 import websrvConfig from '../config/websrv';
 
@@ -34,6 +35,7 @@ import websrvConfig from '../config/websrv';
         websrvConfig
       ],
     }),
-    WebsrvModule],
+    WebsrvModule,
+    LogsModule],
 })
 export class AppModule {}

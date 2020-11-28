@@ -23,6 +23,8 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ClientRequest } from 'http';
+import { Request } from 'express';
+import { LogsService } from 'src/logs/logs.service';
 import * as https from 'https';
 import * as http from 'http';
 import * as httpProxy from 'http-proxy';
@@ -48,7 +50,7 @@ export class WebsrvService {
   private _server: https.Server | http.Server;
   private _proxy: httpProxy;
   
-  constructor (private configService: ConfigService) {
+  constructor (private configService: ConfigService, private log: LogsService) {
     this._cfg = <WebsrvServiceConfig>this.configService.get('websrv');
     this._express = express();
     
@@ -59,7 +61,7 @@ export class WebsrvService {
         ws: true
       });
     } catch(err) {
-      console.error(`Error creating proxy server: ${err.message}`);
+      this.log.error(`Error creating proxy server: ${err.message}`);
       process.exit(err);
     }
   }
@@ -72,30 +74,33 @@ export class WebsrvService {
         
         if (this._cfg.remove_api_string_from_url) req.url = req.url.substr(4);
         
-        console.log(`Proxing request: ${orgURL} -> ${this._cfg.api_url}${req.url}`);
+        //console.log(`Proxing request: ${orgURL} -> ${this._cfg.api_url}${req.url}`);
         this._proxy.web(req, res);
       });
 
       // Proxy socket.io calls.
       // proxy HTTP GET / POST
       this._express.get('/socket.io/*', (req, res) => {
-        console.log("Proxying GET request", req.url);
+        //console.log("Proxying GET request", req.url);
         this._proxy.web(req, res, { target: this._cfg.api_url});
       });
       this._express.post('/socket.io/*', (req, res) => {
-        console.log("Proxying POST request", req.url);
+        //console.log("Proxying POST request", req.url);
         this._proxy.web(req, res, { target: this._cfg.api_url});
       });
 
       // Proxy websockets
       // ATENTION: Very important, the event must be over the server object, NOT over the express handler function.
       this._server.on('upgrade', (req, socket, head) => {
-        console.log(`Proxying upgrade request: ${req.url}`);
+        //console.log(`Proxying upgrade request: ${req.url}`);
         this._proxy.ws(req, socket, head);
       });
 
       // Set origin header if not exists.
-      this._proxy.on('proxyReq', (proxyReq: ClientRequest, req, res, options) => {
+      this._proxy.on('proxyReq', (proxyReq: ClientRequest, req: Request, res, options) => {
+        // Log every proxied request.
+        this.log.http(`${req.ip}|HTTP/${req.httpVersion}|${req.method.toUpperCase()}|${req.originalUrl}`);
+
         if (!proxyReq.getHeader('origin')) {
           if (proxyReq.getHeader('referer')) {
             const referer: string = proxyReq.getHeader('referer').toString();
@@ -110,14 +115,14 @@ export class WebsrvService {
       this._proxy.on('error', (err, req, res) => {
         res.writeHead(500, { 'Content-Type': 'text/plain' });
         res.end(`ERROR: Proxing request: ${req.url}`);
-        console.error(`ERROR: Proxing request: ${req.url} - `, err)
+        this.log.error(`ERROR: Proxing request: ${req.url} - `, err)
       });
 
       // Document root for the web server static files.
       this._express.use(express.static(this._cfg.docroot));
     } catch (err) {
-      console.error(`Application can not start: ${err.message}`);
-      console.error(err.stack);
+      this.log.error(`Application can not start: ${err.message}`);
+      this.log.error(err.stack);
       process.exit(1);
     }
   }
@@ -128,7 +133,7 @@ export class WebsrvService {
       this.proxySetup();
       this.bootstrapEvents();
     } catch (err) {
-        console.error(`ERROR CREATING HTTP/HTTPS SERVER: ${err.message}`);
+        this.log.error(`Error starting FWCloud WEB server: ${err.message}`);
         process.exit(1);
     }
 
@@ -157,8 +162,7 @@ export class WebsrvService {
     });
 
     this._server.on('listening', () => {
-      //logger().info(`${this._type==='api_server' ? 'API server' : 'WEB server'} listening on ` + this.getFullURL());
-      console.log(`FWCloud WEB server listening on ${this.getFullURL()}`)
+      this.log.info(`FWCloud WEB server listening on ${this.getFullURL()}`);
     });
   }
 
