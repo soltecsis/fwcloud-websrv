@@ -20,16 +20,38 @@
     along with FWCloud.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
+import { LogsService } from './logs/logs.service';
 import { WebsrvService } from './websrv/websrv.service';
+import * as fs from 'fs';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  const log: LogsService = app.get<LogsService>(LogsService);
+
+  log.info(`------- Starting application -------`);
+  log.info(`FWCloud Websrv v${JSON.parse(fs.readFileSync('package.json').toString()).version} (PID=${process.pid})`);
+  fs.writeFileSync('.pid',`${process.pid}`);
+  
   // We are not going to use the http server created by NestFactory.
   app.getHttpServer().close();
 
   const websrv: WebsrvService = app.get<WebsrvService>(WebsrvService);
   websrv.start();
+
+  fs.writeFileSync('.pid',`${process.pid}`);
+
+  function signalHandler (signal: 'SIGINT' | 'SIGTERM') {
+    log.info(`Received signal: ${signal}`);
+    fs.unlink('.pid',err => {
+      log.info(`------- Application stopped --------`);
+      app.close();
+      setTimeout(() => process.exit(0), 100);
+    });
+  }
+  process.on('SIGINT', signalHandler);
+  process.on('SIGTERM', signalHandler);
 }
 bootstrap();

@@ -162,7 +162,7 @@ export class WebsrvService {
     });
 
     this._server.on('listening', () => {
-      this.log.info(`FWCloud WEB server listening on ${this.getFullURL()}`);
+      this.log.info(`Listening on ${this.getFullURL()}`);
     });
   }
 

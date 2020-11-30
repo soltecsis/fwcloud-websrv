@@ -8,7 +8,7 @@ WorkingDirectory=/opt/fwcloud/websrv/
 SyslogIdentifier=fwcloud-websrv
 User=fwcloud
 Group=fwcloud
-Type=forking
+Type=simple
 
 [Install]
 WantedBy=multi-user.target
