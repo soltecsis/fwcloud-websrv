@@ -30,7 +30,7 @@ export default registerAs('websrv', () => ({
   docroot: process.env.DOCUMENT_ROOT || '/opt/fwcloud/ui/dist',
 
   // API access URL.
-  api_url: process.env.API_URL || 'http://localhost:3131',
+  api_url: process.env.API_URL || 'https://localhost:3131',
   
   // Remove the heading string /api before proxying the request to the API server.
   remove_api_string_from_url: process.env.REMOVE_API_STRING_FROM_URL || true,
@@ -39,10 +39,10 @@ export default registerAs('websrv', () => ({
   https: process.env.HTTPS_ENABLED === 'false' ? false : true,
 
   // Path to certificate file for the web server.
-  cert: process.env.HTTPS_CERT || './config/tls/fwcloud-web.crt',
+  cert: process.env.HTTPS_CERT || './config/tls/fwcloud-websrv.crt',
 
   // Path to key file for the web server.
-  key: process.env.HTTPS_KEY || './config/tls/fwcloud-web.key',
+  key: process.env.HTTPS_KEY || './config/tls/fwcloud-websrv.key',
 
   // Path to CA bundle file for the web server.
   ca_bundle: process.env.HTTPS_CA_BUNDLE || ''
