@@ -22,7 +22,7 @@
       "type": "node",
       "runtimeVersion": "14.15.1",
       "request": "launch",
-      "name": "FWCloud-Websrv",
+      "name": "Run FWCloud-Websrv",
       "skipFiles": [
         "<node_internals>/**"
       ],

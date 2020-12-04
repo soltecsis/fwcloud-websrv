@@ -46,7 +46,7 @@ export class LogsService {
       ),
       defaultMeta: { service: 'user-service' },
       transports: [
-        new winston.transports.File({ filename: 'logs/app.log', maxsize: 4096, maxFiles: 7, tailable: true }),
+        new winston.transports.File({ filename: 'logs/app.log', maxsize: 4194304, maxFiles: 7, tailable: true }),
       ],
     });
 
@@ -61,7 +61,7 @@ export class LogsService {
       ),
       defaultMeta: { service: 'user-service' },
       transports: [
-        new winston.transports.File({ filename: 'logs/http.log', maxsize: 4096, maxFiles: 7, tailable: true }),
+        new winston.transports.File({ filename: 'logs/http.log', maxsize: 4194304, maxFiles: 7, tailable: true }),
       ],
     });
   }
