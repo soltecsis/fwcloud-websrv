@@ -41,6 +41,7 @@ export type WebsrvServiceConfig = {
   cert: string;
   key: string;
   ca_bundle: string;
+  proxyTimeout: number;
 }
 
 @Injectable()
@@ -58,7 +59,8 @@ export class WebsrvService {
       this._proxy = httpProxy.createProxyServer({
         target: this._cfg.api_url,
         secure: false,
-        ws: true
+        ws: true,
+        proxyTimeout: this._cfg.proxyTimeout
       });
     } catch(err) {
       this.log.error(`Error creating proxy server: ${err.message}`);

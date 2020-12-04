@@ -45,5 +45,8 @@ export default registerAs('websrv', () => ({
   key: process.env.HTTPS_KEY || './config/tls/fwcloud-websrv.key',
 
   // Path to CA bundle file for the web server.
-  ca_bundle: process.env.HTTPS_CA_BUNDLE || ''
+  ca_bundle: process.env.HTTPS_CA_BUNDLE || '',
+
+  // timeout (in millis) for outgoing proxy requests
+  proxyTimeout: process.env.PROXY_TIMEOUT || 300000
 }));

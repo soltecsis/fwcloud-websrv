@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.1] - 2020-12-04
+### Added
+- Proxy timeout option for outgoing proxy requests. Some requests (for example, PUT /updates/updater) may take quite time and the default proxyTimeout value of the http-proxy node module can not be enoght.
+
 ## [1.0.0] - 2020-12-01
 ### Added
 - Logs service.
