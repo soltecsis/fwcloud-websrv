@@ -117,7 +117,7 @@ export class WebsrvService {
       this._proxy.on('error', (err, req, res) => {
         res.writeHead(500, { 'Content-Type': 'text/plain' });
         res.end(`ERROR: Proxing request: ${req.url}`);
-        this.log.error(`ERROR: Proxing request: ${req.url} - `, err)
+        this.log.error(`Proxing request: ${req.url} - `, err)
       });
 
       // Document root for the web server static files.
@@ -135,7 +135,7 @@ export class WebsrvService {
       this.proxySetup();
       this.bootstrapEvents();
     } catch (err) {
-        this.log.error(`Error starting FWCloud WEB server: ${err.message}`);
+        this.log.error(`Starting FWCloud WEB server: ${err.message}`);
         process.exit(1);
     }
 
