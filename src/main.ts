@@ -44,6 +44,12 @@ async function bootstrap() {
 
   function signalHandler (signal: 'SIGINT' | 'SIGTERM') {
     log.info(`Received signal: ${signal}`);
+    
+    if (signal === 'SIGTERM') {
+      log.info(`Ignoring signal ${signal}. If you want stop the application use the signal SIGINT.`);
+      return;
+    }
+
     fs.unlink('.pid',err => {
       log.info(`------- Application stopped --------`);
       app.close();
