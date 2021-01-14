@@ -45,6 +45,7 @@ async function bootstrap() {
     fs.unlink('.pid',err => {
       log.info(`------- Application stopped --------`);
       app.close();
+      // This pause before process exit is necessary for logs to appear in log file.
       setTimeout(() => process.exit(0), 100);
     });
   }

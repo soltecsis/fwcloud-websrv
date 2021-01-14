@@ -5,11 +5,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [1.0.2] - 2021-01-15
+### Added
+- Log fatal startup errors to console.
+  
 ### Changed
 - Default proxy timeout value from 300000ms to 600000ms.
 
 ### Fixed
 - Bug in data type of proxyTimeout configuration parameter when defined in `.env` file.
+- Fatal errors not logged into logs file.
 
 ### Security
 - Updated npm module axios from 0.21.0 to 0.21.1.

@@ -35,7 +35,7 @@ import websrvConfig from '../config/websrv';
         websrvConfig
       ],
     }),
-    WebsrvModule,
-    LogsModule],
+    LogsModule,
+    WebsrvModule],
 })
 export class AppModule {}

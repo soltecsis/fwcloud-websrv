@@ -30,6 +30,7 @@ import * as http from 'http';
 import * as httpProxy from 'http-proxy';
 import * as express from 'express';
 import * as fs from 'fs';
+import { resolve } from 'path';
 
 export type WebsrvServiceConfig = {
   host: string;
@@ -63,12 +64,14 @@ export class WebsrvService {
         proxyTimeout: typeof(this._cfg.proxyTimeout) === 'string' ? parseInt(this._cfg.proxyTimeout) : this._cfg.proxyTimeout
       });
     } catch(err) {
-      this.log.error(`Error creating proxy server: ${err.message}`);
+      const msg = `Error creating proxy server: ${err.message}`;
+      this.log.error(msg);
+      console.error(msg);
       process.exit(err);
     }
   }
 
-  private proxySetup(): void {
+  private async proxySetup(): Promise<void> {
     try {
       // Proxy API calls.
       this._express.all('/api/*', (req, res) => {
@@ -123,20 +126,27 @@ export class WebsrvService {
       // Document root for the web server static files.
       this._express.use(express.static(this._cfg.docroot));
     } catch (err) {
-      this.log.error(`Application can not start: ${err.message}`);
+      const msg = `Application can not start: ${err.message}`;
+      this.log.error(msg);
       this.log.error(err.stack);
-      process.exit(1);
+      console.error(msg);
+      console.error(err.stack);
+      // This pause before process exit is necessary for error logs to appear in log file.
+      await new Promise(() => {setTimeout(() => process.exit(1), 100)});
     }
   }
 
   public async start(): Promise<any> {
     try {
       this._server = this._cfg.https ? this.startHttpsServer() : this.startHttpServer();
-      this.proxySetup();
+      await this.proxySetup();
       this.bootstrapEvents();
     } catch (err) {
-        this.log.error(`Starting FWCloud WEB server: ${err.message}`);
-        process.exit(1);
+      const msg = `Starting FWCloud WEB server: ${err.message}`;
+        this.log.error(msg);
+        console.error(msg);
+        // This pause before process exit is necessary for error logs to appear in log file.
+        await new Promise(() => {setTimeout(() => process.exit(1), 100)});
     }
 
     return this;
