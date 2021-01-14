@@ -40,8 +40,6 @@ async function bootstrap() {
   const websrv: WebsrvService = app.get<WebsrvService>(WebsrvService);
   websrv.start();
 
-  fs.writeFileSync('.pid',`${process.pid}`);
-
   function signalHandler (signal: 'SIGINT' | 'SIGTERM') {
     log.info(`Received signal: ${signal}`);
     fs.unlink('.pid',err => {

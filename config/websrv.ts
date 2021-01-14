@@ -48,5 +48,5 @@ export default registerAs('websrv', () => ({
   ca_bundle: process.env.HTTPS_CA_BUNDLE || '',
 
   // timeout (in millis) for outgoing proxy requests
-  proxyTimeout: process.env.PROXY_TIMEOUT || 300000
+  proxyTimeout: process.env.PROXY_TIMEOUT || 600000
 }));
