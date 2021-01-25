@@ -118,7 +118,14 @@ export class WebsrvService {
       });
 
       this._proxy.on('error', (err, req, res) => {
-        res.writeHead(500, { 'Content-Type': 'text/plain' });
+        /* If we stop fwcloud-api in the middle of an API request, the proxy will receive two errors:
+            - ECONNRESET: (socket hang up) for the API request interrupted.
+            - EPIPE: (This socket has been ended by the other party) for the websocket.
+          In the second one, the method res.writeHead() is undefined and triggers the execution end of
+          the fwcloud-websrv process. For this reason we must verify that this method exists before
+          invoking it.
+        */
+        if (res.writeHead) res.writeHead(500, { 'Content-Type': 'text/plain' });
         res.end(`ERROR: Proxing request: ${req.url}`);
         this.log.error(`Proxing request: ${req.url} - `, err)
       });

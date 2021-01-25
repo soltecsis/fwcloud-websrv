@@ -6,6 +6,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.3] - 2021-01-25
+### Fixed
+- Verify that in the proxy `on error` event handler the `res.writeHead()` method is defined before calling it. If fwcloud-api is stopped in the middle of an API call processing, this event handler receives an `EPIPE` error (*This socket has been ended by the other party*) for the websocket and the `res` object doesn't has the `res.writeHead()` method defined. This was triggering a fatal error and the execution end of the fwcloud-websrv process.
+
+
 ## [1.0.2] - 2021-01-15
 ### Added
 - Log fatal startup errors to console.
