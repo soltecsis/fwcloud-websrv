@@ -35,7 +35,8 @@ import { resolve } from 'path';
 export type WebsrvServiceConfig = {
   host: string;
   port: number;
-  docroot: string;
+  docroot_ui: string;
+  docroot_ui_doc: string;
   api_url: string;
   remove_api_string_from_url: boolean;
   https: boolean;
@@ -131,7 +132,8 @@ export class WebsrvService {
       });
 
       // Document root for the web server static files.
-      this._express.use(express.static(this._cfg.docroot));
+      this._express.use('/manual',express.static(this._cfg.docroot_ui_doc));
+      this._express.use(express.static(this._cfg.docroot_ui));
     } catch (err) {
       const msg = `Application can not start: ${err.message}`;
       this.log.error(msg);

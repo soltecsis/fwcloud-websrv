@@ -27,7 +27,8 @@ export default registerAs('websrv', () => ({
   port: process.env.LISTEN_PORT || 3030,
 
   // Web server document root path.
-  docroot: process.env.DOCUMENT_ROOT || '/opt/fwcloud/ui/dist',
+  docroot_ui: process.env.DOCUMENT_ROOT_UI || '/opt/fwcloud/ui/dist',
+  docroot_ui_doc: process.env.DOCUMENT_ROOT_UI_DOC || '/opt/fwcloud/ui/fwcloud-ui-doc-dist',
 
   // API access URL.
   api_url: process.env.FWC_API_URL || 'https://localhost:3131',
