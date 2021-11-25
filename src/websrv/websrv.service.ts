@@ -24,7 +24,7 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ClientRequest } from 'http';
 import { Request } from 'express';
-import { LogsService } from 'src/logs/logs.service';
+import { LogsService } from '../logs/logs.service';
 import * as https from 'https';
 import * as http from 'http';
 import * as httpProxy from 'http-proxy';
