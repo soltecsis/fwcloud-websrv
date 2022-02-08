@@ -29,10 +29,10 @@
     "update": "npm run stop && git checkout -- package-lock.json && git pull && npm install && git checkout -- package-lock.json && npm run build"
   },
   "dependencies": {
-    "@nestjs/common": "^7.6.18",
-    "@nestjs/config": "^0.6.3",
-    "@nestjs/core": "^7.6.18",
-    "@nestjs/platform-express": "^7.6.18",
+    "@nestjs/common": "^8.2.6",
+    "@nestjs/config": "^1.1.6",
+    "@nestjs/core": "^8.2.6",
+    "@nestjs/platform-express": "^8.2.6",
     "@types/http-proxy": "^1.17.7",
     "http-proxy": "^1.18.1",
     "reflect-metadata": "^0.1.13",
