@@ -1,5 +1,5 @@
 /*
-    Copyright 2020 SOLTECSIS SOLUCIONES TECNOLOGICAS, SLU
+    Copyright 2022 SOLTECSIS SOLUCIONES TECNOLOGICAS, SLU
     https://soltecsis.com
     info@soltecsis.com
 
@@ -28,7 +28,7 @@ export default registerAs('websrv', () => ({
 
   // Web server document root path.
   docroot_ui: process.env.DOCUMENT_ROOT_UI || '/opt/fwcloud/ui/dist',
-  docroot_ui_doc: process.env.DOCUMENT_ROOT_UI_DOC || '/opt/fwcloud/ui/fwcloud-ui-doc-dist',
+  docroot_ui_doc: process.env.DOCUMENT_ROOT_UI_DOC || '/opt/fwcloud/ui/doc',
 
   // API access URL.
   api_url: process.env.FWC_API_URL || 'https://localhost:3131',
