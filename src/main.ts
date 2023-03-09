@@ -32,7 +32,6 @@ async function bootstrap() {
 
   log.info(`------- Starting application -------`);
   log.info(`FWCloud Websrv v${JSON.parse(fs.readFileSync('package.json').toString()).version} (PID=${process.pid})`);
-  fs.writeFileSync('.pid',`${process.pid}`);
   
   // We are not going to use the http server created by NestFactory.
   app.getHttpServer().close();

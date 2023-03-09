@@ -184,6 +184,8 @@ export class WebsrvService {
 
     this._server.on('listening', () => {
       this.log.info(`Listening on ${this.getFullURL()}`);
+      // If the service is started successfully then store the PID in the file.
+      fs.writeFileSync('.pid',`${process.pid}`);
     });
   }
 
