@@ -34,7 +34,7 @@ export default registerAs('websrv', () => ({
   api_url: process.env.FWC_API_URL || 'https://localhost:3131',
   
   // Remove the heading string /api before proxying the request to the API server.
-  remove_api_string_from_url: process.env.REMOVE_API_STRING_FROM_URL || true,
+  remove_api_string_from_url: process.env.REMOVE_API_STRING_FROM_URL || true,
 
   // Enable HTTPS protocol for the web server.
   https: process.env.HTTPS_ENABLED === 'false' ? false : true,
