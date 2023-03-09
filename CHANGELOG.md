@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Task in package.json file for TLS certificates update.
 - Script for TLS certificate update.
 
+### Fixed
+- Updated npm modules.
+
 
 ## [1.0.8] - 2022-09-06
 ### Changed
