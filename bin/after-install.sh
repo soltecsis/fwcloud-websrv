@@ -23,4 +23,8 @@ chown -R fwcloud:fwcloud websrv && chmod 750 websrv
 # Disable check for updates in FWCloud-UI.
 echo '{ "checkUpdates": false }' > /opt/fwcloud/ui/dist/assets/config/config.json
 
+# Enable and start FWCloud-Websrv service.
+systemctl enable fwcloud-websrv
+systemctl start fwcloud-websrv
+
 exit 0

@@ -16,4 +16,7 @@ cd /opt/fwcloud
 chown -R fwcloud:fwcloud ui && chmod 750 ui
 chown -R fwcloud:fwcloud websrv && chmod 750 websrv
 
+# Restart FWCloud-Websrv service.
+systemctl restart fwcloud-websrv
+
 exit 0
