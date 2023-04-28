@@ -11,12 +11,16 @@
 ##                                         ##
 #############################################
 
-cd /opt/fwcloud/websrv
-./upgrade-cert.sh websrv
+cd /opt/fwcloud/websrv/bin
+mkdir ../config/tls
+./update-cert.sh websrv >/dev/null
 
 # Make sure that all files are owned by the fwcloud user and group.
 cd /opt/fwcloud
 chown -R fwcloud:fwcloud ui && chmod 750 ui
 chown -R fwcloud:fwcloud websrv && chmod 750 websrv
+
+# Disable check for updates in FWCloud-UI.
+echo '{ "checkUpdates": false }' > /opt/fwcloud/ui/dist/assets/config/config.json
 
 exit 0
