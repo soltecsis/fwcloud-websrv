@@ -11,8 +11,6 @@
 ##                                         ##
 #############################################
 
-BASEDIR=$(dirname "$0")
-
 # Verify that Node.js and NPM are installed.
 
 # Create the fwcloud user and group.
