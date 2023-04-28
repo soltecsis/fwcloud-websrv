@@ -11,9 +11,12 @@
 ##                                         ##
 #############################################
 
-BASEDIR=$(dirname "$0")
-
-cd "$BASEDIR"
+cd /opt/fwcloud/websrv
 ./upgrade-cert.sh websrv
+
+# Make sure that all files are owned by the fwcloud user and group.
+cd /opt/fwcloud
+chown -R fwcloud:fwcloud ui && chmod 750 ui
+chown -R fwcloud:fwcloud websrv && chmod 750 websrv
 
 exit 0
