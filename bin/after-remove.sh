@@ -23,6 +23,4 @@ if [ -d "$RDIR" ]; then
   fi
 fi
 
-rm /tmp/after-remove.sh
-
 exit 0
