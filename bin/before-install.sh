@@ -13,11 +13,11 @@
 
 # Verify that Node.js and NPM are installed.
 NODE=`which node`
-NPM=`which node`
+NPM=`which npm`
 
 if [ -z "$NODE" ]; then
   echo
-  echo "ERROR: Node must be installed."
+  echo "ERROR: Node.js must be installed."
   echo
   exit 1
 fi
