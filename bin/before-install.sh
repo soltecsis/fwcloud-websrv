@@ -16,12 +16,16 @@ NODE=`which node`
 NPM=`which node`
 
 if [ -z "$NODE" ]; then
+  echo
   echo "ERROR: Node must be installed."
+  echo
   exit 1
 fi
 
 if [ -z "$NPM" ]; then
+  echo
   echo "ERROR: Npm must be installed."
+  echo
   exit 1
 fi
 
