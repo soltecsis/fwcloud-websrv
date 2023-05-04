@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Automatically generated packages by means of GitHub Actions for `deb` and `rpm` based Linux distributions.
 - `After=fwcloud-api.service` to the `fwcloud-websrv.service` systemd file to make sure that the FWCloud-API service is started before the `fwcloud-websrv` service.
+- `Alias=fwcloud-ui.service` to the `fwcloud-websrv.service` systemd file.
 
 
 ## [1.1.2] - 2022-03-09

@@ -13,3 +13,4 @@ Type=simple
 
 [Install]
 WantedBy=multi-user.target
+Alias=fwcloud-ui.service
