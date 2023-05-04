@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased] - 
+## [1.2.0] - 2022-05-04
 ### Added
 - Automatically generated packages by means of GitHub Actions for `deb` and `rpm` based Linux distributions.
 - `After=fwcloud-api.service` to the `fwcloud-websrv.service` systemd file to make sure that the FWCloud-API service is started before the `fwcloud-websrv` service.
