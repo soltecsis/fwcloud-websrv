@@ -1,5 +1,6 @@
 [Unit]
 Description=fwcloud-websrv
+After=fwcloud-api.service
 
 [Service]
 ExecStart=/usr/bin/npm start
