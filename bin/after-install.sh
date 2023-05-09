@@ -23,6 +23,23 @@ chown -R fwcloud:fwcloud websrv && chmod 750 websrv
 # Disable check for updates in FWCloud-UI.
 echo '{ "checkUpdates": false }' > /opt/fwcloud/ui/dist/assets/config/config.json
 
+# This is necessary because with FPM we don't have yet an --rpm-systemd option like the --deb-systemd option.
+SRVFILE="/lib/systemd/system/fwcloud-websrv.service"
+if [ ! -f "$SRVFILE" ]; then
+  cp /opt/fwcloud/websrv/config/sys/fwcloud-websrv.service $SRVFILE
+  chown root:root $SRVFILE
+  chmod 644 $SRVFILE
+fi
+
+# Some Linux distributions have SELinux enabled.
+if [[ $(getenforce) == "Enforcing" ]]; then
+  # If SELinux is enabled, then load the semodule necessary for start the FWCloud-API service.
+  cd /opt/fwcloud/websrv/config/sys/SELinux
+  checkmodule -M -m -o fwcloud-websrv.mod fwcloud-websrv.te
+  semodule_package -o fwcloud-websrv.pp -m fwcloud-websrv.mod
+  semodule -i fwcloud-websrv.pp
+fi
+
 # Enable and start FWCloud-Websrv service.
 systemctl enable fwcloud-websrv
 systemctl start fwcloud-websrv

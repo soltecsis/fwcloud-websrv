@@ -26,4 +26,15 @@ if [ -d "$RDIR" ]; then
   fi
 fi
 
+# This is necessary because with FPM we don't have yet an --rpm-systemd option like the --deb-systemd option.
+SRVFILE="/lib/systemd/system/fwcloud-websrv.service"
+if [ -f "$SRVFILE" ]; then
+  rm -f $SRVFILE
+fi
+
+# Some Linux distributions have SELinux enabled.
+if [[ $(getenforce) == "Enforcing" ]]; then
+  semodule -r fwcloud-websrv
+fi
+
 exit 0
