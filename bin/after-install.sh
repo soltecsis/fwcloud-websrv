@@ -32,12 +32,14 @@ if [ ! -f "$SRVFILE" ]; then
 fi
 
 # Some Linux distributions have SELinux enabled.
-if [[ $(getenforce) == "Enforcing" ]]; then
-  # If SELinux is enabled, then load the semodule necessary for start the FWCloud-API service.
-  cd /opt/fwcloud/websrv/config/sys/SELinux
-  checkmodule -M -m -o fwcloud-websrv.mod fwcloud-websrv.te
-  semodule_package -o fwcloud-websrv.pp -m fwcloud-websrv.mod
-  semodule -i fwcloud-websrv.pp
+if command -v getenforce >/dev/null 2>&1; then
+  if [ $(getenforce) == "Enforcing" ]; then
+    # If SELinux is enabled, then load the semodule necessary for start the FWCloud-API service.
+    cd /opt/fwcloud/websrv/config/sys/SELinux
+    checkmodule -M -m -o fwcloud-websrv.mod fwcloud-websrv.te
+    semodule_package -o fwcloud-websrv.pp -m fwcloud-websrv.mod
+    semodule -i fwcloud-websrv.pp
+  fi
 fi
 
 # Enable and start FWCloud-Websrv service.
