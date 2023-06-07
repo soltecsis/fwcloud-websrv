@@ -21,8 +21,8 @@ cd /opt/fwcloud
 chown -R fwcloud:fwcloud ui && chmod 750 ui
 chown -R fwcloud:fwcloud websrv && chmod 750 websrv
 
-# Disable check for updates in FWCloud-UI.
-echo '{ "checkUpdates": false }' > /opt/fwcloud/ui/dist/assets/config/config.json
+# Indicate the install method we have followed for FWCloud installation.
+echo '{ "installMethod": "pkg" }' > /opt/fwcloud/ui/dist/assets/config/config.json
 
 # Some Linux distributions have SELinux enabled.
 if command -v getenforce >/dev/null 2>&1; then
