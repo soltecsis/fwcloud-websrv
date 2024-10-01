@@ -31,7 +31,7 @@ export default registerAs('websrv', () => ({
   docroot_ui_doc: process.env.DOCUMENT_ROOT_UI_DOC || '/opt/fwcloud/ui/doc',
 
   // API access URL.
-  api_url: process.env.FWC_API_URL || 'https://localhost:3131',
+  api_url: process.env.FWC_API_URL || 'https://127.0.0.1:3131',
   
   // Remove the heading string /api before proxying the request to the API server.
   remove_api_string_from_url: process.env.REMOVE_API_STRING_FROM_URL || true,

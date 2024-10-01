@@ -4,15 +4,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.2.4] - 2024-10-01
+## [Unreleased] - 
 ### Added
 - Added logic to redirect to index.html of web server document root path when cant resolve url.
 - Added fresh_build_start npm run script.
 
 ### Fixed
+- Error: `/var/lib/dpkg/info/fwcloud-ui.postinst: 70: [: Disabled: unexpected operator`.
 - Updated packages to the last versions.
 - Updated npm modules.
 - Updated CI with last node versions.
+
+### Changed
+- Default value for `FWC_API_URL` config option from `https://localhost:3131` to `https://127.0.0.1:3131`.
+
 
 ## [1.2.3] - 2023-06-07
 ### Changed
