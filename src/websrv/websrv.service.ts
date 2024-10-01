@@ -30,7 +30,7 @@ import * as http from 'http';
 import * as httpProxy from 'http-proxy';
 import * as express from 'express';
 import * as fs from 'fs';
-import { resolve } from 'path';
+import * as path from 'path';
 
 export type WebsrvServiceConfig = {
   host: string;
@@ -134,6 +134,12 @@ export class WebsrvService {
       // Document root for the web server static files.
       this._express.use('/manual',express.static(this._cfg.docroot_ui_doc));
       this._express.use(express.static(this._cfg.docroot_ui));
+      
+      // Redirect any unhandled route to Angular's index.html
+      this._express.use((req, res, next) => {
+        res.sendFile(path.join(this._cfg.docroot_ui, 'index.html'));
+      });
+      
     } catch (err) {
       const msg = `Application can not start: ${err.message}`;
       this.log.error(msg);
