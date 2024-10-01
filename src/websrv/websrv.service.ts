@@ -126,7 +126,7 @@ export class WebsrvService {
           the fwcloud-websrv process. For this reason we must verify that this method exists before
           invoking it.
         */
-        if (res.writeHead) res.writeHead(500, { 'Content-Type': 'text/plain' });
+        if ((res as http.ServerResponse).writeHead) (res as http.ServerResponse).writeHead(500, { 'Content-Type': 'text/plain' });
         res.end(`ERROR: Proxing request: ${req.url}`);
         this.log.error(`Proxing request: ${req.url} - `, err)
       });
