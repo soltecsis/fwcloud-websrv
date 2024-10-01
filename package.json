@@ -27,7 +27,8 @@
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "update": "npm run stop && git checkout -- package-lock.json && git pull && npm install && git checkout -- package-lock.json && npm run build",
-    "update-cert": "bin/update-cert.sh websrv"
+    "update-cert": "bin/update-cert.sh websrv",
+    "fresh_build_start": "clear && rm -rf node_modules package-lock.json && npm i && npm run build && npm run start"
   },
   "dependencies": {
     "@nestjs/common": "^8.4.7",
