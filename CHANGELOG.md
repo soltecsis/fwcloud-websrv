@@ -8,12 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Added logic to redirect to index.html of web server document root path when cant resolve url.
 - Added fresh_build_start npm run script.
+- Added eslint and Prettier checks to CI.
 
 ### Fixed
 - Error: `/var/lib/dpkg/info/fwcloud-ui.postinst: 70: [: Disabled: unexpected operator`.
 - Updated packages to the last versions.
 - Updated npm modules.
 - Updated CI with last node versions.
+- Delete unused packages.
+- Update eslint config file.
 
 ### Changed
 - Default value for `FWC_API_URL` config option from `https://localhost:3131` to `https://127.0.0.1:3131`.

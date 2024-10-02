@@ -31,50 +31,63 @@ export class LogsService {
 
   constructor() {
     // Make sure logs directory exists.
-    if (!fs.existsSync('logs')){
+    if (!fs.existsSync('logs')) {
       fs.mkdirSync('logs');
     }
 
     this._logger = winston.createLogger({
       level: 'debug',
       levels: winston.config.npm.levels,
-      format: winston.format.combine (
+      format: winston.format.combine(
         winston.format.timestamp({
-            format: 'YYYY-MM-DD HH:mm:ss'
+          format: 'YYYY-MM-DD HH:mm:ss',
         }),
-        winston.format.printf(info => `${info.timestamp}|${info.level.toUpperCase()}|${info.message}`)
+        winston.format.printf(
+          (info) =>
+            `${info.timestamp}|${info.level.toUpperCase()}|${info.message}`,
+        ),
       ),
       defaultMeta: { service: 'user-service' },
       transports: [
-        new winston.transports.File({ filename: 'logs/app.log', maxsize: 4194304, maxFiles: 7, tailable: true }),
+        new winston.transports.File({
+          filename: 'logs/app.log',
+          maxsize: 4194304,
+          maxFiles: 7,
+          tailable: true,
+        }),
       ],
     });
 
     this._http_logger = winston.createLogger({
       level: 'entry',
-      levels: {entry: 0},
-      format: winston.format.combine (
+      levels: { entry: 0 },
+      format: winston.format.combine(
         winston.format.timestamp({
-            format: 'YYYY-MM-DD HH:mm:ss'
+          format: 'YYYY-MM-DD HH:mm:ss',
         }),
-        winston.format.printf(info => `${info.timestamp}|${info.message}`)
+        winston.format.printf((info) => `${info.timestamp}|${info.message}`),
       ),
       defaultMeta: { service: 'user-service' },
       transports: [
-        new winston.transports.File({ filename: 'logs/http.log', maxsize: 4194304, maxFiles: 7, tailable: true }),
+        new winston.transports.File({
+          filename: 'logs/http.log',
+          maxsize: 4194304,
+          maxFiles: 7,
+          tailable: true,
+        }),
       ],
     });
   }
 
-  http(log: string):void {
-    this._http_logger.log('entry',log);
+  http(log: string): void {
+    this._http_logger.log('entry', log);
   }
 
-  error(log: string, meta?: any):void {
+  error(log: string, meta?: any): void {
     this._logger.error(log, meta);
   }
 
-  info(log: string, meta?: any):void {
+  info(log: string, meta?: any): void {
     this._logger.info(log, meta);
   }
 }

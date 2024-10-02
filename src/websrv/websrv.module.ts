@@ -26,6 +26,6 @@ import { WebsrvService } from './websrv.service';
 
 @Module({
   providers: [WebsrvService],
-  imports: [LogsModule]
+  imports: [LogsModule],
 })
 export class WebsrvModule {}

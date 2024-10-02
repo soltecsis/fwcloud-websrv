@@ -25,25 +25,29 @@ import { AppModule } from './app.module';
 import { LogsService } from './logs/logs.service';
 import { WebsrvService } from './websrv/websrv.service';
 import * as fs from 'fs';
+import { HttpServer, INestApplication } from '@nestjs/common';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app: INestApplication = await NestFactory.create(AppModule);
   const log: LogsService = app.get<LogsService>(LogsService);
 
   log.info(`------- Starting application -------`);
-  log.info(`FWCloud Websrv v${JSON.parse(fs.readFileSync('package.json').toString()).version} (PID=${process.pid})`);
-  
+  log.info(
+    `FWCloud Websrv v${(JSON.parse(fs.readFileSync('package.json').toString()) as { version: string }).version} (PID=${process.pid})`,
+  );
+
   // We are not going to use the http server created by NestFactory.
-  app.getHttpServer().close();
+  const httpServer = app.getHttpServer() as HttpServer;
+  httpServer.close();
 
   const websrv: WebsrvService = app.get<WebsrvService>(WebsrvService);
-  websrv.start();
+  void websrv.start();
 
-  function signalHandler (signal: 'SIGINT' | 'SIGTERM') {
+  function signalHandler(signal: 'SIGINT' | 'SIGTERM') {
     log.info(`Received signal: ${signal}`);
-    fs.unlink('.pid',err => {
+    fs.unlink('.pid', () => {
       log.info(`------- Application stopped --------`);
-      app.close();
+      void app.close();
       // This pause before process exit is necessary for logs to appear in log file.
       setTimeout(() => process.exit(0), 100);
     });
@@ -51,4 +55,4 @@ async function bootstrap() {
   process.on('SIGINT', signalHandler);
   process.on('SIGTERM', signalHandler);
 }
-bootstrap();
+void bootstrap();

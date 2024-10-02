@@ -31,11 +31,10 @@ import websrvConfig from '../config/websrv';
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [
-        websrvConfig
-      ],
+      load: [websrvConfig],
     }),
     LogsModule,
-    WebsrvModule],
+    WebsrvModule,
+  ],
 })
 export class AppModule {}
