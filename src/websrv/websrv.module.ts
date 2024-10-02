@@ -21,11 +21,11 @@
 */
 
 import { Module } from '@nestjs/common';
-import { LogsModule } from 'src/logs/logs.module';
+import { LogsModule } from '../logs/logs.module';
 import { WebsrvService } from './websrv.service';
 
 @Module({
   providers: [WebsrvService],
-  imports: [LogsModule]
+  imports: [LogsModule],
 })
 export class WebsrvModule {}

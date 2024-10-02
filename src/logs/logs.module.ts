@@ -25,6 +25,6 @@ import { LogsService } from './logs.service';
 
 @Module({
   providers: [LogsService],
-  exports: [LogsService]
+  exports: [LogsService],
 })
 export class LogsModule {}

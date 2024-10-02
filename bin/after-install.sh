@@ -26,7 +26,7 @@ echo '{ "installMethod": "pkg" }' > /opt/fwcloud/ui/dist/assets/config/config.js
 
 # Some Linux distributions have SELinux enabled.
 if command -v getenforce >/dev/null 2>&1; then
-  if [ $(getenforce) == "Enforcing" ]; then
+  if [ $(getenforce) = "Enforcing" ]; then
     # If SELinux is enabled, then load the semodule necessary for start the FWCloud-API service.
     cd /opt/fwcloud/websrv/config/sys/SELinux
     checkmodule -M -m -o fwcloud-websrv.mod fwcloud-websrv.te

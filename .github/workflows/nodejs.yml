@@ -9,7 +9,7 @@ jobs:
 
     strategy:
       matrix:
-        node-version: ['10', '12', '14', '16']
+        node-version: ['16', '18', '20']
 
     steps:
     - uses: actions/checkout@v2
@@ -32,6 +32,11 @@ jobs:
           ${{ runner.os }}-
     - name: Install dependencies
       run: npm install
+    - name: Run ESLint
+      if: matrix.node-version == '18' || matrix.node-version == '20'
+      run: npm run lint:check
+    - name: Run Prettier
+      run: npm run format:check
     - name: Build FWCloud-Websrv
       run: npm run build
     - name: Run tests
