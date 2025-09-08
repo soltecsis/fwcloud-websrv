@@ -66,6 +66,7 @@ export class WebsrvService {
         target: this._cfg.api_url,
         secure: false,
         ws: true,
+        xfwd: true, // Add x-forwarded-for, x-forwarded-port, x-forwarded-proto headers
         proxyTimeout:
           typeof this._cfg.proxyTimeout === 'string'
             ? parseInt(this._cfg.proxyTimeout)
@@ -83,7 +84,7 @@ export class WebsrvService {
     try {
       // Proxy API calls.
       this._express.all(
-        '/api/*',
+        /^\/api\/.*/,
         (
           req: http.IncomingMessage,
           res: http.ServerResponse<http.IncomingMessage>,
@@ -98,7 +99,7 @@ export class WebsrvService {
       // Proxy socket.io calls.
       // proxy HTTP GET / POST
       this._express.get(
-        '/socket.io/*',
+        /^\/socket\.io\/.*/,
         (
           req: http.IncomingMessage,
           res: http.ServerResponse<http.IncomingMessage>,
@@ -108,7 +109,7 @@ export class WebsrvService {
         },
       );
       this._express.post(
-        '/socket.io/*',
+        /^\/socket\.io\/.*/,
         (
           req: http.IncomingMessage,
           res: http.ServerResponse<http.IncomingMessage>,
