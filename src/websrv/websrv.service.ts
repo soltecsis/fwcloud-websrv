@@ -31,6 +31,7 @@ import * as httpProxy from 'http-proxy';
 import * as express from 'express';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as net from 'net';
 
 export type WebsrvServiceConfig = {
   host: string;
@@ -121,10 +122,13 @@ export class WebsrvService {
 
       // Proxy websockets
       // ATENTION: Very important, the event must be over the server object, NOT over the express handler function.
-      this._server.on('upgrade', (req, socket, head) => {
-        //console.log(`Proxying upgrade request: ${req.url}`);
-        this._proxy.ws(req, socket, head);
-      });
+      this._server.on(
+        'upgrade',
+        (req: http.IncomingMessage, socket: net.Socket, head: Buffer) => {
+          //console.log(`Proxying upgrade request: ${req.url}`);
+          this._proxy.ws(req, socket, head);
+        },
+      );
 
       // Set origin header if not exists.
       this._proxy.on('proxyReq', (proxyReq: ClientRequest, req: Request) => {
