@@ -44,7 +44,7 @@
     "winston": "3.19.0"
   },
   "devDependencies": {
-    "@nestjs/cli": "11.0.14",
+    "@nestjs/cli": "11.0.16",
     "@nestjs/testing": "11.1.11",
     "@types/express": "5.0.6",
     "@types/jest": "30.0.0",
