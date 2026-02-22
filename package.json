@@ -36,7 +36,7 @@
   },
   "dependencies": {
     "@nestjs/common": "11.1.11",
-    "@nestjs/config": "4.0.2",
+    "@nestjs/config": "4.0.3",
     "@nestjs/core": "11.1.11",
     "@nestjs/platform-express": "11.1.11",
     "@types/http-proxy": "1.17.17",
