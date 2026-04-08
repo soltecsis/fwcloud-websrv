@@ -21,20 +21,51 @@
 */
 
 import { Test, TestingModule } from '@nestjs/testing';
-import { WebsrvService } from './websrv.service';
+import { ConfigService } from '@nestjs/config';
+import { LogsService } from '../logs/logs.service';
+import { WebsrvService, WebsrvServiceConfig } from './websrv.service';
 
 describe('WebsrvService', () => {
   let service: WebsrvService;
+  const config: WebsrvServiceConfig = {
+    host: '127.0.0.1',
+    port: 3000,
+    docroot_ui: '.',
+    docroot_ui_doc: '.',
+    api_url: 'http://127.0.0.1:3001',
+    remove_api_string_from_url: false,
+    https: false,
+    cert: '',
+    key: '',
+    ca_bundle: '',
+    proxyTimeout: 1000,
+  };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [WebsrvService],
+      providers: [
+        WebsrvService,
+        {
+          provide: ConfigService,
+          useValue: {
+            get: jest.fn().mockReturnValue(config),
+          },
+        },
+        {
+          provide: LogsService,
+          useValue: {
+            error: jest.fn(),
+            http: jest.fn(),
+            info: jest.fn(),
+          },
+        },
+      ],
     }).compile();
 
     service = module.get<WebsrvService>(WebsrvService);
   });
 
-  it.skip('should be defined', () => {
+  it('should be defined', () => {
     expect(service).toBeDefined();
   });
 });

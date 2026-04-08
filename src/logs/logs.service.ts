@@ -44,7 +44,7 @@ export class LogsService {
         }),
         winston.format.printf(
           (info) =>
-            // eslint-disable-next-line @typescript-eslint/no-base-to-string, @typescript-eslint/restrict-template-expressions
+            // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
             `${info.timestamp}|${info.level.toUpperCase()}|${info.message}`,
         ),
       ),
@@ -66,7 +66,7 @@ export class LogsService {
         winston.format.timestamp({
           format: 'YYYY-MM-DD HH:mm:ss',
         }),
-        // eslint-disable-next-line @typescript-eslint/no-base-to-string, @typescript-eslint/restrict-template-expressions
+        // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
         winston.format.printf((info) => `${info.timestamp}|${info.message}`),
       ),
       defaultMeta: { service: 'user-service' },

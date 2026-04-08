@@ -23,12 +23,15 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ClientRequest } from 'http';
-import { Request } from 'express';
+import type { Request } from 'express';
 import { LogsService } from '../logs/logs.service';
 import * as https from 'https';
 import * as http from 'http';
-import * as httpProxy from 'http-proxy';
-import * as express from 'express';
+// These packages use `export =`, so import assignment is the runtime-safe form here.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+import httpProxy = require('http-proxy');
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+import express = require('express');
 import * as fs from 'fs';
 import * as path from 'path';
 import * as net from 'net';
@@ -51,19 +54,23 @@ export type WebsrvServiceConfig = {
 export class WebsrvService {
   private _cfg: WebsrvServiceConfig;
   private _express: express.Application;
-  private _server: https.Server | http.Server;
-  private _proxy: httpProxy;
+  private _server!: https.Server | http.Server;
+  private _proxy!: httpProxy<Request, http.ServerResponse>;
 
   constructor(
     private configService: ConfigService,
     private log: LogsService,
   ) {
-    this._cfg = this.configService.get('websrv');
+    const cfg = this.configService.get<WebsrvServiceConfig>('websrv');
+    if (!cfg) {
+      throw new Error('Missing "websrv" configuration');
+    }
+    this._cfg = cfg;
 
     this._express = express();
 
     try {
-      this._proxy = httpProxy.createProxyServer({
+      this._proxy = httpProxy.createProxyServer<Request, http.ServerResponse>({
         target: this._cfg.api_url,
         secure: false,
         ws: true,
@@ -90,7 +97,9 @@ export class WebsrvService {
           req: http.IncomingMessage,
           res: http.ServerResponse<http.IncomingMessage>,
         ) => {
-          if (this._cfg.remove_api_string_from_url) req.url = req.url.substr(4);
+          if (this._cfg.remove_api_string_from_url && req.url) {
+            req.url = req.url.slice(4);
+          }
 
           //console.log(`Proxing request: ${orgURL} -> ${this._cfg.api_url}${req.url}`);
           this._proxy.web(req, res);
@@ -138,10 +147,13 @@ export class WebsrvService {
         );
 
         if (!proxyReq.getHeader('origin')) {
-          if (proxyReq.getHeader('referer')) {
-            const referer: string = proxyReq.getHeader('referer').toString();
+          const refererHeader = proxyReq.getHeader('referer');
+          if (refererHeader) {
+            const referer = Array.isArray(refererHeader)
+              ? refererHeader[0]
+              : refererHeader.toString();
             if (referer) {
-              const origin = referer.substr(
+              const origin = referer.substring(
                 0,
                 referer.indexOf('/', referer.indexOf('://') + 3),
               );
@@ -163,8 +175,8 @@ export class WebsrvService {
           (res as http.ServerResponse).writeHead(500, {
             'Content-Type': 'text/plain',
           });
-        res.end(`ERROR: Proxing request: ${req.url}`);
-        this.log.error(`Proxing request: ${req.url} - `, err);
+        res.end(`ERROR: Proxing request: ${req.url ?? ''}`);
+        this.log.error(`Proxing request: ${req.url ?? ''} - `, err);
       });
 
       // Document root for the web server static files.
@@ -179,10 +191,15 @@ export class WebsrvService {
       );
     } catch (err: any) {
       const msg = `Application can not start: ${(err as Error).message}`;
+      const stack = (err as Error).stack;
       this.log.error(msg);
-      this.log.error((err as Error).stack);
+      if (stack) {
+        this.log.error(stack);
+      }
       console.error(msg);
-      console.error((err as Error).stack);
+      if (stack) {
+        console.error(stack);
+      }
       // This pause before process exit is necessary for error logs to appear in log file.
       await new Promise(() => {
         setTimeout(() => process.exit(1), 100);
@@ -211,13 +228,13 @@ export class WebsrvService {
   }
 
   private startHttpsServer(): https.Server {
-    const tlsOptions = {
-      key: fs.readFileSync(this._cfg.key).toString(),
-      cert: fs.readFileSync(this._cfg.cert).toString(),
-      ca: this._cfg.ca_bundle
-        ? fs.readFileSync(this._cfg.ca_bundle).toString()
-        : null,
+    const tlsOptions: https.ServerOptions = {
+      key: fs.readFileSync(this._cfg.key),
+      cert: fs.readFileSync(this._cfg.cert),
     };
+    if (this._cfg.ca_bundle) {
+      tlsOptions.ca = fs.readFileSync(this._cfg.ca_bundle);
+    }
 
     return https.createServer(
       tlsOptions,
