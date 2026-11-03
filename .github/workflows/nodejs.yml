@@ -17,6 +17,57 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  gitleaks:
+    name: gitleaks
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      # Reuse FWCloud API's pinned binary and checksum. No npm install or
+      # Node.js matrix is needed for this independent security check.
+      - name: Load Gitleaks version
+        run: |
+          node -e '
+            const fs = require("node:fs");
+            const c = require("./scripts/gitleaks-config.json");
+            fs.appendFileSync(process.env.GITHUB_ENV, [
+              "GITLEAKS_VERSION=" + c.version,
+              "GITLEAKS_ARCHIVE=" + c.archive,
+              "GITLEAKS_ARCHIVE_SHA256=" + c.archiveSha256,
+              "GITLEAKS_BINARY=" + process.env.RUNNER_TEMP + "/gitleaks",
+              ""
+            ].join("\n"));
+          '
+
+      - name: Install Gitleaks
+        run: |
+          curl --fail --silent --show-error --location \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/${GITLEAKS_ARCHIVE}" \
+            --output "$RUNNER_TEMP/$GITLEAKS_ARCHIVE"
+          printf '%s  %s\n' "$GITLEAKS_ARCHIVE_SHA256" "$RUNNER_TEMP/$GITLEAKS_ARCHIVE" \
+            | sha256sum --check --strict
+          tar -xzf "$RUNNER_TEMP/$GITLEAKS_ARCHIVE" -C "$RUNNER_TEMP" gitleaks
+
+      - name: Verify secret scanning against controlled Git history
+        run: node --test scripts/scan-secrets.integration.cjs
+
+      - name: Scan complete Git history and verify ignore-file policy
+        id: scan
+        run: node scripts/scan-secrets.cjs
+
+      - name: Upload secret scan locations
+        if: ${{ !cancelled() && steps.scan.outcome != 'skipped' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: websrv-secrets-${{ github.run_id }}-${{ github.run_attempt }}
+          path: reports/secrets/metadata.json
+          retention-days: 14
+          if-no-files-found: error
+
   quality:
     name: quality
     runs-on: ubuntu-latest
@@ -117,7 +168,7 @@ jobs:
   websrv-ci:
     name: websrv-ci
     if: always()
-    needs: [quality, test]
+    needs: [gitleaks, quality, test]
     runs-on: ubuntu-latest
     steps:
       - name: Check required job results
