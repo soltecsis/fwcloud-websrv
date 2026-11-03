@@ -163,6 +163,14 @@ export class WebsrvService {
         }
       });
 
+      // http-proxy forwards request errors, but response streams can also fail
+      // after the upstream has already sent its headers.
+      this._proxy.on('proxyRes', (proxyRes, req, res) => {
+        proxyRes.on('error', (err) => {
+          this._proxy.emit('error', err, req, res);
+        });
+      });
+
       this._proxy.on('error', (err, req, res) => {
         /* If we stop fwcloud-api in the middle of an API request, the proxy will receive two errors:
             - ECONNRESET: (socket hang up) for the API request interrupted.
@@ -171,11 +179,17 @@ export class WebsrvService {
           the fwcloud-websrv process. For this reason we must verify that this method exists before
           invoking it.
         */
-        if ((res as http.ServerResponse).writeHead)
-          (res as http.ServerResponse).writeHead(500, {
-            'Content-Type': 'text/plain',
-          });
-        res.end(`ERROR: Proxing request: ${req.url ?? ''}`);
+        if ((res as http.ServerResponse).headersSent) {
+          // A partial response cannot be replaced with an HTTP error response.
+          // Close it so the client detects the interruption instead of hanging.
+          res.destroy();
+        } else {
+          if ((res as http.ServerResponse).writeHead)
+            (res as http.ServerResponse).writeHead(500, {
+              'Content-Type': 'text/plain',
+            });
+          res.end(`ERROR: Proxing request: ${req.url ?? ''}`);
+        }
         this.log.error(`Proxing request: ${req.url ?? ''} - `, err);
       });
 
