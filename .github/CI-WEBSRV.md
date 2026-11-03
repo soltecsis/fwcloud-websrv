@@ -139,6 +139,19 @@ the coverage scope (`collectCoverageFrom`). The CI scripts only add reporters on
 command line; `test:coverage:ci` selects the `json`, `json-summary`, `lcov` and `text`
 coverage reporters. `jest-junit` is pinned to an exact version in `package.json`.
 
+The shared Jest configuration discovers unit tests under `src/` and integration tests
+under `test/`. Every matrix job runs both in the same Jest invocation, so the existing
+JUnit, JSON results and reference coverage include the integration tests. Coverage
+continues to measure application sources under `src/`, excluding the test harness.
+`npm run test:e2e` uses `test/jest-e2e.json` to run just the integration tests locally.
+
+Integration tests use ephemeral loopback ports and temporary frontend, documentation
+and TLS files; they require no running FWCloud API or external network access. The
+`openssl` executable generates temporary self-signed certificates and is available on
+the workflow's Ubuntu runners. Install it locally before running the suite. Teardown
+closes servers and connections, removes temporary files and restores intercepted PID
+writes and process exits.
+
 `scripts/ci-reports.cjs` is adapted from `fwcloud-api` (`scripts/ci-reports.cjs`). That
 version reads Mocha and c8 reports; this one reads Jest reports, adds the coverage
 baseline and drops the database fields.
@@ -245,9 +258,9 @@ details:
 Coverage shows which code the tests ran, not whether they checked its behavior. 60 % line
 coverage means 60 % of the lines were executed, not that 60 % of the code is correct.
 No minimum percentage is enforced: the baseline is a reference to find untested code and
-compare runs. At the time of writing, the baseline on Node.js 22 was 18.93 % lines,
-20 % statements, 6.66 % functions and 7.89 % branches; most of `websrv.service.ts`
-(proxy, static files and HTTPS) is not covered.
+compare runs. Read the current measurements from the reference run's `baseline.json`;
+the integration tests exercise proxying, static files and HTTP/HTTPS startup in
+`websrv.service.ts`.
 
 ### Verifying and comparing baselines
 
