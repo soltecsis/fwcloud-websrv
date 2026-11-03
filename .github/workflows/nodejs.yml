@@ -38,6 +38,9 @@ jobs:
       - name: Run Prettier
         run: npm run format:check
 
+      - name: Test CI report tooling
+        run: npm run test:ci-tools
+
   test:
     name: test (Node.js ${{ matrix.node-version }})
     runs-on: ubuntu-latest
@@ -45,6 +48,9 @@ jobs:
       fail-fast: false
       matrix:
         node-version: ['20', '22', '24']
+    env:
+      # Node.js 22 is the reference environment for coverage measurements.
+      COVERAGE_EXPECTED: ${{ matrix.node-version == '22' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -64,9 +70,47 @@ jobs:
         run: npm run build
 
       - name: Run tests
-        run: npm test
+        id: tests
+        run: |
+          if [ "$COVERAGE_EXPECTED" = true ]; then
+            npm run test:coverage:ci
+          else
+            npm run test:ci
+          fi
         env:
           CI: true
+
+      # The steps below also run after failed tests, so the available reports
+      # are kept. They are skipped when the tests never started.
+      - name: Verify reports and summarize results
+        if: ${{ !cancelled() && steps.tests.outcome != 'skipped' }}
+        run: npm run ci:reports
+        env:
+          TEST_OUTCOME: ${{ steps.tests.outcome }}
+          PULL_REQUEST_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+
+      - name: Upload test reports
+        if: ${{ !cancelled() && steps.tests.outcome != 'skipped' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: websrv-tests-node${{ matrix.node-version }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            reports/jest/
+            reports/metadata.json
+          if-no-files-found: error
+
+      - name: Upload coverage reports
+        if: ${{ !cancelled() && steps.tests.outcome != 'skipped' && env.COVERAGE_EXPECTED == 'true' }}
+        uses: actions/upload-artifact@v7
+        with:
+          # One coverage artifact per run. Re-running the reference job replaces
+          # it; baseline.json records the run attempt that produced it.
+          name: websrv-coverage-node${{ matrix.node-version }}-${{ github.run_id }}
+          overwrite: true
+          path: |
+            coverage/
+            reports/coverage/
+          if-no-files-found: error
 
   # Stable required check for branch protection. Add every new required job
   # to `needs`; the gate checks all of them without further changes.
