@@ -2,9 +2,10 @@
 
 Continuous integration for FWCloud Websrv runs on GitHub Actions and is defined in
 [`.github/workflows/nodejs.yml`](workflows/nodejs.yml). It checks code quality, builds the
-application, scans the complete available Git history for secrets and runs the test suite
-on every supported Node.js version. It keeps test, coverage and safe secret scan metadata
-as workflow artifacts. It then reports a single result, `websrv-ci`,
+application, scans the complete available Git history for secrets, checks dependency
+vulnerabilities and runs the test suite on every supported Node.js version. It keeps test,
+coverage, safe secret scan metadata, dependency reports and a Software Bill of Materials
+(SBOM) as workflow artifacts. It then reports a single result, `websrv-ci`,
 which branch protection can use as the required check.
 
 ## Workflow overview
@@ -16,6 +17,8 @@ FWCloud Websrv CI
 │
 ├── gitleaks                 Full checkout → verified Gitleaks → detector regression → full-history scan
 │
+├── trivy                    Verified Trivy → dependency scan → CycloneDX SBOM → HIGH/CRITICAL gate → upload evidence
+│
 ├── test (Node.js 20)        npm ci → build → test:ci          → ci:reports → upload test reports
 ├── test (Node.js 22)        npm ci → build → test:coverage:ci → ci:reports → upload test and coverage reports
 ├── test (Node.js 24)        npm ci → build → test:ci          → ci:reports → upload test reports
@@ -23,13 +26,14 @@ FWCloud Websrv CI
 └── websrv-ci                Passes only if every job above succeeded
 ```
 
-`quality`, `gitleaks` and the `test` matrix run independently. `websrv-ci` waits for
-all of them, including the secret scan.
+`quality`, `gitleaks`, `trivy` and the `test` matrix run independently. `websrv-ci`
+waits for all of them, including both security scans.
 
 | Job                      | Purpose                                                                         |
 | ------------------------ | ------------------------------------------------------------------------------- |
 | `quality`                | ESLint, Prettier and tests of the CI tooling, run once on Node.js 22.           |
 | `gitleaks`               | Validate the detector and scan complete history for secrets, outside the Node.js matrix. |
+| `trivy`                  | Scan locked runtime and development dependencies, generate an SBOM and enforce the vulnerability policy. |
 | `test (Node.js <x>)`     | Clean install, build, Jest tests and test reports on one Node.js version.       |
 | `test (Node.js 22)`      | Also the reference coverage run. See [Test and coverage reports](#test-and-coverage-reports). |
 | `websrv-ci`              | Aggregates the results of all required jobs.                                    |
@@ -105,9 +109,10 @@ variable of the `test` job.
   the hash of `package-lock.json` as the key. `node_modules` is never cached, so every run
   starts from a clean install.
 
-The `gitleaks` job downloads a checksum-verified standalone CLI and uses Node.js built-in
-modules for its scan wrapper and tests. It does not install npm dependencies or execute
-application lifecycle scripts.
+The `gitleaks` and `trivy` jobs each download a checksum-verified standalone CLI and use
+Node.js built-in modules for their tooling and tests. Neither installs npm dependencies
+or executes application lifecycle scripts. Trivy inventories the repository's lockfile
+directly, including development dependencies with `--include-dev-deps`.
 
 ## Quality checks
 
@@ -115,7 +120,7 @@ application lifecycle scripts.
 | -------------- | ----------------------- | --------------------------------------------------------------------------------- |
 | ESLint         | `npm run lint:check`    | `{src,app,lib,tests,config,test}/**/*.ts`                                         |
 | Prettier       | `npm run format:check`  | `{src,app,lib,tests,config,test,scripts}/**/*.{ts,cjs,json,yml,yaml}` (`--check`) |
-| CI tooling     | `npm run test:ci-tools` | `scripts/*.test.cjs`, including report and secret scan wrapper tests, run with `node --test` |
+| CI tooling     | `npm run test:ci-tools` | `scripts/*.test.cjs`, including report, secret scan and Trivy evidence tests, run with `node --test` |
 
 These checks only report problems. They never change files.
 
@@ -125,6 +130,10 @@ are only checked by Prettier and by their own tests. Other files under `config/`
 such as the systemd unit and SELinux policy in `config/sys/`, are not supported by either
 tool and are not checked. Prettier also skips anything listed in `.gitignore`, such as the
 TLS certificates in `config/tls/`.
+
+The native Trivy policy regression needs the pinned scanner binary. It runs in the
+`trivy` job and is skipped by `test:ci-tools` when `TRIVY_BINARY` is unset. It checks
+severity filtering, blocking findings without a fix and malformed scanner input.
 
 ## Test and coverage reports
 
@@ -139,7 +148,7 @@ test result: a failing test still fails its job.
 | `npm run test:ci`             | Jest with the default console reporter, `jest-junit` and Jest's JSON results.      |
 | `npm run test:coverage:ci`    | The same single test run, with coverage enabled.                                   |
 | `npm run ci:reports`          | Runs `scripts/ci-reports.cjs`: validates the reports, writes metadata and baseline. |
-| `npm run test:ci-tools`       | Tests of CI report generation and secret scan policy.                             |
+| `npm run test:ci-tools`       | Tests of CI report generation, secret scan policy and Trivy evidence validation. |
 | `jest-junit` in `package.json` | JUnit output path and format. Suites that fail to run are reported as errors.     |
 
 `npm test` and `npm run test:cov` are unchanged and write no JUnit, JSON results or
@@ -431,6 +440,183 @@ implemented. Credential rotation and Git history rewriting are not automated by 
 change. Rerun the same full-history scan after remediation and retain its result before
 considering the scan successful.
 
+## Dependency vulnerabilities and SBOM
+
+### Reference and scope
+
+The `trivy` job follows [FWCloud API's SCA implementation](https://github.com/soltecsis/fwcloud-api/blob/d4627b256905853bd04eaa0432ba8466dae83545/.github/workflows/nodejs.yml)
+and [shared scanner configuration](https://github.com/soltecsis/fwcloud-api/blob/d4627b256905853bd04eaa0432ba8466dae83545/scripts/trivy-config.json)
+on `ENS`: a complete JSON vulnerability report, an independently generated CycloneDX
+SBOM, a native severity gate and diagnostic evidence. [FWCloud UI's `upstream/ENS`
+reference](https://github.com/soltecsis/fwcloud-ui-src/blob/e08b70e817425acb9e0ce009cb396dad32fbadbb/.github/workflows/main.yml)
+uses the same JSON/CycloneDX filenames, severity policy, run/attempt naming and 90-day
+retention. Its scanner is newer (`0.76.1`) and it converts the vulnerability JSON to an
+SBOM; Websrv follows API's `0.74.0` pin and independent SBOM generation. Neither
+reference requires a SARIF artifact.
+
+[`scripts/trivy-config.json`](../scripts/trivy-config.json) records Trivy **0.74.0**,
+the Linux x64 archive `trivy_0.74.0_Linux-64bit.tar.gz` and its SHA-256:
+`2ae6fe3ee734b7fdf11335663e18c75ea12dccc76062f09f164a3b0f8be4371a`.
+CI verifies the checksum and executed version before scanning. The database is updated
+by Trivy; a pinned binary does not freeze vulnerability data or future findings.
+
+The filesystem scanner runs on the repository (`trivy fs .`) with `--scanners vuln`
+and `--pkg-types library`. It inventories direct and transitive runtime, development
+and optional npm dependencies represented in `package.json` and `package-lock.json`.
+`--include-dev-deps` explicitly includes development dependencies; `--list-all-pkgs`
+retains the complete inventory. It does not need `node_modules`, a build, a database
+service or a successful Node.js test matrix. The job uses the same default checkout as
+the other Websrv jobs: on pull requests this is GitHub's test merge commit. Evidence
+records the checked-out revision and lockfile checksum.
+
+This scan covers the repository dependency inventory. The resulting SBOM is
+CycloneDX **1.7**, generated separately without vulnerability entries. It does not
+describe a built container or prove which dependencies a deployed installation uses.
+
+### Policy and failure handling
+
+| Condition | Result |
+| --------- | ------ |
+| `HIGH` or `CRITICAL`, with or without a fixed version | Fail CI. |
+| `UNKNOWN`, `LOW` or `MEDIUM` only | Report without blocking. |
+| Installation, checksum, database, scanner or SBOM error | Fail CI. |
+| Missing, malformed, empty or inconsistent required evidence | Fail CI. |
+| Root lockfile not inventoried or npm inventory empty | Fail CI. |
+
+The initial scan writes all severities to `trivy.json` with `--exit-code 0` and
+`--ignore-unfixed=false`. This keeps informational findings available; it does not
+accept scanner execution errors. A subsequent `trivy convert` command applies
+`--severity HIGH,CRITICAL --exit-code 5` to that JSON without repeating the scan.
+Code `0` accepts the severity gate, `5` means blocking findings, and any other nonzero
+code is an operational error. Both findings and errors fail the job. Pipeline exit
+codes are captured before `tee` can hide scanner or report-writing failures.
+
+`TRIVY_CONFIG=/dev/null` and `TRIVY_IGNOREFILE=/dev/null` prevent implicit repository
+configuration or ignore files from suppressing findings. An absent fix does not create
+an exception. This integration adds no automatic upgrades or vulnerability exclusions.
+
+[`scripts/trivy-report.cjs`](../scripts/trivy-report.cjs) validates scanner exit codes,
+the pinned version and database timestamp, the root npm inventory, SBOM components and
+dependency references, and agreement between the native gate and reported findings.
+It writes aggregate metadata and a job summary. Invalid evidence fails validation;
+an omitted scan never becomes a clean result.
+
+### Reports and artifacts
+
+The security job publishes `websrv-sca-sbom-<RUN_ID>-<ATTEMPT>` with **90-day requested
+retention** and `if-no-files-found: error`. Its files are generated under:
+
+```text
+reports/dependencies/
+├── metadata.json          Revision, run, database, package counts, severities and validation errors
+├── sbom.cdx.json          CycloneDX 1.7 inventory and dependency relationships
+├── trivy.json             Complete machine-readable vulnerability report and package inventory
+├── trivy-version.json     Executed scanner and vulnerability database versions
+├── blocking.txt           Native HIGH/CRITICAL gate table or diagnostic output
+├── context.txt            Run, checkout, step outcomes and native exit codes
+├── scan.log               Vulnerability scanner diagnostics
+└── sbom.log               SBOM generation diagnostics
+```
+
+Download the artifact from the workflow run's **Artifacts** section. It includes CVE
+identifiers, installed versions and available fixes in `trivy.json`; `blocking.txt`
+shows the findings that block CI. Paths above describe generation in the checkout;
+the upload places these files at the artifact root.
+
+The policy/context step and artifact upload use `always()`, so a vulnerability failure
+still leaves the report and SBOM available. Operational failures preserve whatever
+evidence was produced, including diagnostics and error context. A failed installation
+or scan can leave a partial artifact; missing files are not fabricated and do not make
+the job succeed. `websrv-ci` requires `trivy` to finish with `success`.
+
+### Local dependency scan
+
+Use Node.js 22 for the configuration reads and tooling, and run the commands from the
+repository root. No npm installation is needed. These commands install the same
+verified Linux x64 release into a temporary directory:
+
+```bash
+TRIVY_VERSION=$(node -p 'require("./scripts/trivy-config.json").version')
+TRIVY_ARCHIVE=$(node -p 'require("./scripts/trivy-config.json").archive')
+TRIVY_SHA256=$(node -p 'require("./scripts/trivy-config.json").archiveSha256')
+TRIVY_INSTALL_DIR=$(mktemp -d)
+curl --fail --silent --show-error --location --proto '=https' --tlsv1.2 \
+  "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/${TRIVY_ARCHIVE}" \
+  --output "$TRIVY_INSTALL_DIR/$TRIVY_ARCHIVE"
+printf '%s  %s\n' "$TRIVY_SHA256" "$TRIVY_INSTALL_DIR/$TRIVY_ARCHIVE" \
+  | sha256sum --check --strict
+tar -xzf "$TRIVY_INSTALL_DIR/$TRIVY_ARCHIVE" -C "$TRIVY_INSTALL_DIR" trivy
+TRIVY_VERSION_OUTPUT=$("$TRIVY_INSTALL_DIR/trivy" --version)
+test "${TRIVY_VERSION_OUTPUT%%$'\n'*}" = "Version: $TRIVY_VERSION"
+```
+
+Run each command only after the preceding command succeeds. On another platform, use
+the same release for that platform and verify its published checksum. Database
+downloads require network access. Use the same checkout and lockfile as CI when
+comparing results; later database updates can change the findings.
+
+Run the official CLI directly in Bash, preserving scanner failures through pipelines:
+
+```bash
+export TRIVY_CONFIG=/dev/null
+export TRIVY_IGNOREFILE=/dev/null
+export TRIVY_TIMEOUT=10m
+export TRIVY_DISABLE_TELEMETRY=true
+export TRIVY_SKIP_VERSION_CHECK=true
+export TRIVY_CACHE_DIR="$TRIVY_INSTALL_DIR/cache"
+set -o pipefail
+mkdir -p reports/dependencies
+
+"$TRIVY_INSTALL_DIR/trivy" fs . --scanners vuln --pkg-types library \
+  --include-dev-deps --list-all-pkgs --no-progress \
+  --severity UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL --ignore-unfixed=false \
+  --exit-code 0 --format json --output reports/dependencies/trivy.json \
+  2>&1 | tee reports/dependencies/scan.log
+
+"$TRIVY_INSTALL_DIR/trivy" fs . --include-dev-deps --no-progress \
+  --format cyclonedx --output reports/dependencies/sbom.cdx.json \
+  2>&1 | tee reports/dependencies/sbom.log
+
+"$TRIVY_INSTALL_DIR/trivy" version --format json \
+  > reports/dependencies/trivy-version.json
+
+"$TRIVY_INSTALL_DIR/trivy" convert --format table --scanners vuln \
+  --severity HIGH,CRITICAL --exit-code 5 reports/dependencies/trivy.json \
+  2>&1 | tee reports/dependencies/blocking.txt
+```
+
+The last command returns `5` for blocking findings, including those without a fix.
+Stop and investigate other nonzero results before interpreting the reports. CI also
+generates `metadata.json` and `context.txt` and performs the evidence validation
+described above. For a table of every severity, run:
+
+```bash
+"$TRIVY_INSTALL_DIR/trivy" convert --format table --scanners vuln \
+  reports/dependencies/trivy.json
+
+TRIVY_BINARY="$TRIVY_INSTALL_DIR/trivy" node --test scripts/trivy-policy.test.cjs
+node --test scripts/trivy-report.test.cjs
+```
+
+### Remediating vulnerabilities
+
+Review `blocking.txt` and the corresponding `trivy.json` entry for each CVE, affected
+package, installed version and `FixedVersion`. Use `npm explain <package>` in an installed
+development checkout to identify which direct dependency brings in a vulnerable
+transitive dependency.
+
+When a fix exists, deliberately update the affected direct dependency or its parent
+to a compatible fixed release and commit both manifest and lockfile changes as needed.
+For a finding without a fix, investigate removing or replacing the dependency or an
+upstream release that removes the vulnerable code. Record the affected dependency,
+advisory and remediation owner; the finding continues to block until resolved. Adding
+ignore files, filtering unfixed findings or lowering severity does not satisfy this
+policy.
+
+After remediation, run the same scan and gate, then the build and test checks documented
+below. Check informational findings as part of maintenance even though `LOW` and
+`MEDIUM` do not block. This CI integration does not upgrade dependencies automatically.
+
 ## Running CI locally
 
 Run the same commands as CI from the repository root. `npm ci` deletes `node_modules`
@@ -483,7 +669,7 @@ npm run format:fix
 
 Use `websrv-ci` as the only required check for each protected branch listed in
 [Triggers](#triggers). Do not require the
-individual `quality`, `gitleaks` or `test (Node.js <x>)` checks: matrix check names change when the matrix
+individual `quality`, `gitleaks`, `trivy` or `test (Node.js <x>)` checks: matrix check names change when the matrix
 changes, while `websrv-ci` stays the same.
 
 `websrv-ci` uses `if: always()`, so it runs even when a job it depends on fails. It
@@ -514,6 +700,9 @@ To configure it (repository admin):
 | `gitleaks` reports findings | Download its safe metadata artifact and follow [Handling findings](#handling-findings). A secret deleted from the latest tree is still detected in history. |
 | `gitleaks` rejects `.gitleaksignore` | Remove the prohibited entry, including nested files or symlinks. Findings must be reviewed without ignore fingerprints. |
 | `gitleaks` reports an execution error | Check the pinned binary/checksum, full Git checkout and local reproduction. Missing or inconsistent results fail CI; they are not a clean scan. |
+| `trivy` reports HIGH/CRITICAL findings (gate code `5`) | Download `websrv-sca-sbom-...`, review `blocking.txt` and `trivy.json`, then follow [Remediating vulnerabilities](#remediating-vulnerabilities). Findings without a fix also block. |
+| `trivy` fails to install, scan or generate an SBOM | Inspect `context.txt`, `scan.log` and `sbom.log` when available. Check the pinned version/checksum and database network access. Operational errors fail CI; rerun after resolving the cause. |
+| Trivy evidence validation fails or the artifact is partial | Inspect `metadata.json` and step outcomes in `context.txt`. Missing/invalid reports, an empty npm inventory, differing SBOM packages or a missing database timestamp cannot satisfy the check. Reproduce using [Local dependency scan](#local-dependency-scan). |
 | The coverage artifact has no `baseline.json` | The Node.js 22 run failed or its coverage was invalid, so no baseline was recorded. See that job's summary. |
 | `sha256sum -c reports/coverage/lcov.sha256` fails | `coverage/lcov.info` is not the file the baseline was recorded for. Download the artifact again, unmodified. |
 | `websrv-ci` fails but no job failed | A required job was cancelled or skipped. Check the job list in the run summary, then re-run the workflow. A cancelled run on an old commit can be ignored if a newer run exists. |
