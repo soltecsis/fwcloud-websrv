@@ -1,45 +1,90 @@
-name: FWCloud-Websrv CI
+# Documentation: .github/CI-WEBSRV.md
+name: FWCloud Websrv CI
 
-on: [push, pull_request]
+on:
+  push:
+    branches: [main, devel, ENS]
+  pull_request:
+    branches: [main, devel, ENS]
+
+permissions:
+  contents: read
+
+# One active run per pull request (or per branch for pushes). A newer run
+# cancels the superseded one; runs for other PRs or branches are unaffected.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  test:
-    name: 'FWCloud-Websrv Test'
+  quality:
+    name: quality
     runs-on: ubuntu-latest
-
-    strategy:
-      matrix:
-        node-version: ['18', '20', '22']
-
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Use Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v5
-      with:
-        node-version: ${{ matrix.node-version }}
+      - name: Use Node.js 22
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
 
-    - name: Cache node modules
-      uses: actions/cache@v4
-      env:
-        cache-name: cache-node-modules
-      with:
-        path: ~/.npm # npm cache files are stored in `~/.npm` on Linux/macOS
-        key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/package-lock.json') }}
-        restore-keys: |
-          ${{ runner.os }}-build-${{ env.cache-name }}-
-          ${{ runner.os }}-build-
-          ${{ runner.os }}-
-    - name: Install dependencies
-      run: npm install
-    - name: Run ESLint
-      if: matrix.node-version == '18' || matrix.node-version == '20'
-      run: npm run lint:check
-    - name: Run Prettier
-      run: npm run format:check
-    - name: Build FWCloud-Websrv
-      run: npm run build
-    - name: Run tests
-      run: npm run test
-      env:
-        CI: true
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run ESLint
+        run: npm run lint:check
+
+      - name: Run Prettier
+        run: npm run format:check
+
+  test:
+    name: test (Node.js ${{ matrix.node-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: ['20', '22', '24']
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v5
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify package-lock.json is unchanged
+        run: git diff --exit-code -- package-lock.json
+
+      - name: Build FWCloud-Websrv
+        run: npm run build
+
+      - name: Run tests
+        run: npm test
+        env:
+          CI: true
+
+  # Stable required check for branch protection. Add every new required job
+  # to `needs`; the gate checks all of them without further changes.
+  websrv-ci:
+    name: websrv-ci
+    if: always()
+    needs: [quality, test]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check required job results
+        if: always()
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          echo "$NEEDS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
+          if echo "$NEEDS" | jq -e 'all(.[]; .result == "success")' > /dev/null; then
+            echo "All required jobs succeeded."
+          else
+            echo "::error::One or more required jobs did not succeed (failure, skipped or cancelled)."
+            exit 1
+          fi
