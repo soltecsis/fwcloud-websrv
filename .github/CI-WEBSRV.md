@@ -98,12 +98,18 @@ not need updating.
 
 ## Quality checks
 
-| Check    | Command                | Scope                                    |
-| -------- | ---------------------- | ---------------------------------------- |
-| ESLint   | `npm run lint:check`   | `{src,app,lib,tests}/**/*.ts`            |
-| Prettier | `npm run format:check` | `{src,app,lib,tests}/**/*.ts` (`--check`) |
+| Check    | Command                | Scope                                                                 |
+| -------- | ---------------------- | --------------------------------------------------------------------- |
+| ESLint   | `npm run lint:check`   | `{src,app,lib,tests,config,test}/**/*.ts`                             |
+| Prettier | `npm run format:check` | `{src,app,lib,tests,config,test}/**/*.{ts,json,yml,yaml}` (`--check`) |
 
 Both checks only report problems. They never change files.
+
+ESLint only covers TypeScript: its type-aware rules need every file to be part of the
+`tsconfig.json` project, which does not include JavaScript. Other files under `config/`,
+such as the systemd unit and SELinux policy in `config/sys/`, are not supported by either
+tool and are not checked. Prettier also skips anything listed in `.gitignore`, such as the
+TLS certificates in `config/tls/`.
 
 ## Running CI locally
 
