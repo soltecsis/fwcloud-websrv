@@ -32,7 +32,7 @@ export default registerAs('websrv', () => ({
 
   // API access URL.
   api_url: process.env.FWC_API_URL || 'https://127.0.0.1:3131',
-  
+
   // Remove the heading string /api before proxying the request to the API server.
   remove_api_string_from_url: process.env.REMOVE_API_STRING_FROM_URL || true,
 
@@ -49,5 +49,5 @@ export default registerAs('websrv', () => ({
   ca_bundle: process.env.HTTPS_CA_BUNDLE || '',
 
   // timeout (in millis) for outgoing proxy requests
-  proxyTimeout: process.env.PROXY_TIMEOUT || 3600000
+  proxyTimeout: process.env.PROXY_TIMEOUT || 3600000,
 }));
