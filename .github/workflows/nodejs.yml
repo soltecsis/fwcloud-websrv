@@ -247,6 +247,9 @@ jobs:
       COVERAGE_EXPECTED: ${{ matrix.node-version == '22' }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Coverage and SonarQube must describe the same PR head revision.
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Use Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v5
