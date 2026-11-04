@@ -3,7 +3,8 @@
 Continuous integration for FWCloud Websrv runs on GitHub Actions and is defined in
 [`.github/workflows/nodejs.yml`](workflows/nodejs.yml). It checks code quality, builds the
 application, scans the complete available Git history for secrets, checks dependency
-vulnerabilities and runs the test suite on every supported Node.js version. It keeps test,
+vulnerabilities, runs the test suite on every supported Node.js version and enforces the
+SonarQube Cloud Quality Gate. It keeps test,
 coverage, safe secret scan metadata, dependency reports and a Software Bill of Materials
 (SBOM) as workflow artifacts. It then reports a single result, `websrv-ci`,
 which branch protection can use as the required check.
@@ -23,11 +24,15 @@ FWCloud Websrv CI
 ├── test (Node.js 22)        npm ci → build → test:coverage:ci → ci:reports → upload test and coverage reports
 ├── test (Node.js 24)        npm ci → build → test:ci          → ci:reports → upload test reports
 │
-└── websrv-ci                Passes only if every job above succeeded
+├── sonar                    After all jobs above pass: validate Node.js 22 coverage → official scan → Quality Gate
+│
+└── websrv-ci                Passes only if every job above succeeded (sonar: skipped on fork/Dependabot runs)
 ```
 
-`quality`, `gitleaks`, `trivy` and the `test` matrix run independently. `websrv-ci`
-waits for all of them, including both security scans.
+`quality`, `gitleaks`, `trivy` and the `test` matrix run independently. `sonar` starts
+only after all of them succeed, so sources reach SonarQube Cloud after the secret scan
+passes. It consumes the Node.js 22 coverage artifact. `websrv-ci` waits for every job,
+including both security scans and SonarQube.
 
 | Job                      | Purpose                                                                         |
 | ------------------------ | ------------------------------------------------------------------------------- |
@@ -36,10 +41,11 @@ waits for all of them, including both security scans.
 | `trivy`                  | Scan locked runtime and development dependencies, generate an SBOM and enforce the vulnerability policy. |
 | `test (Node.js <x>)`     | Clean install, build, Jest tests and test reports on one Node.js version.       |
 | `test (Node.js 22)`      | Also the reference coverage run. See [Test and coverage reports](#test-and-coverage-reports). |
+| `sonar`                  | Validate reference coverage, analyze application sources and wait for the configured Quality Gate. Skipped on fork and Dependabot runs. |
 | `websrv-ci`              | Aggregates the results of all required jobs.                                    |
 
-The workflow does not deploy or publish anything outside the run. Reports are only
-available as artifacts of the workflow run.
+The workflow does not deploy the application. SonarQube analysis results are sent to
+the configured SonarQube Cloud project; other reports are available as workflow artifacts.
 
 ## Triggers
 
@@ -89,7 +95,7 @@ cancelled run satisfy the required check without running the tests.
 | 22      |     ✔     |   ✔    |         ✔          |
 | 24      |           |   ✔    |                    |
 
-`quality` runs only on Node.js 22. The `test` matrix uses `fail-fast: false`, so one
+`quality` and the SonarQube preparation tooling run on Node.js 22. The `test` matrix uses `fail-fast: false`, so one
 failing version does not cancel the others. Each version is reported as its own check
 (`test (Node.js 20)`, `test (Node.js 22)`, `test (Node.js 24)`).
 
@@ -114,13 +120,17 @@ Node.js built-in modules for their tooling and tests. Neither installs npm depen
 or executes application lifecycle scripts. Trivy inventories the repository's lockfile
 directly, including development dependencies with `--include-dev-deps`.
 
+The `sonar` job uses Node.js built-in modules to validate its downloaded coverage.
+It installs no npm dependencies and does not build or rerun the tests. The pinned
+official action downloads and verifies SonarScanner CLI.
+
 ## Quality checks
 
 | Check          | Command                 | Scope                                                                             |
 | -------------- | ----------------------- | --------------------------------------------------------------------------------- |
 | ESLint         | `npm run lint:check`    | `{src,app,lib,tests,config,test}/**/*.ts`                                         |
 | Prettier       | `npm run format:check`  | `{src,app,lib,tests,config,test,scripts}/**/*.{ts,cjs,json,yml,yaml}` (`--check`) |
-| CI tooling     | `npm run test:ci-tools` | `scripts/*.test.cjs`, including report, secret scan and Trivy evidence tests, run with `node --test` |
+| CI tooling     | `npm run test:ci-tools` | `scripts/*.test.cjs`, including report, secret scan, Trivy evidence and SonarQube tests, run with `node --test` |
 
 These checks only report problems. They never change files.
 
@@ -148,7 +158,7 @@ test result: a failing test still fails its job.
 | `npm run test:ci`             | Jest with the default console reporter, `jest-junit` and Jest's JSON results.      |
 | `npm run test:coverage:ci`    | The same single test run, with coverage enabled.                                   |
 | `npm run ci:reports`          | Runs `scripts/ci-reports.cjs`: validates the reports, writes metadata and baseline. |
-| `npm run test:ci-tools`       | Tests of CI report generation, secret scan policy and Trivy evidence validation. |
+| `npm run test:ci-tools`       | Tests of CI report generation, secret scan policy, Trivy evidence and SonarQube validation. |
 | `jest-junit` in `package.json` | JUnit output path and format. Suites that fail to run are reported as errors.     |
 
 `npm test` and `npm run test:cov` are unchanged and write no JUnit, JSON results or
@@ -252,13 +262,17 @@ pull request on the [trigger branches](#triggers)). The suite runs once in that 
 coverage enabled. Paths that only run on other Node.js versions are not reflected in the
 baseline.
 
+All test matrix jobs check out the PR head commit (`github.event.pull_request.head.sha`)
+on pull requests and `github.sha` on pushes. SonarQube checks out that same revision.
+This makes imported coverage describe the sources being analyzed.
+
 `reports/coverage/baseline.json` contains `reports/metadata.json` plus the LCOV file
 details:
 
 | Field                    | Content                                                                         |
 | ------------------------ | ------------------------------------------------------------------------------- |
 | `generatedAt`            | Report generation timestamp (ISO 8601, UTC).                                    |
-| `commit`                 | Checked-out commit. On pull requests, GitHub's test merge commit.               |
+| `commit`                 | Checked-out commit. On pull requests, the tested PR head commit.               |
 | `pullRequestHeadCommit`  | Head commit of the pull request branch, or `null` on pushes.                    |
 | `repository`, `event`, `ref`, `runId`, `runAttempt` | GitHub run that produced the baseline.               |
 | `node`, `npm`            | Exact Node.js and npm versions.                                                 |
@@ -466,7 +480,8 @@ and optional npm dependencies represented in `package.json` and `package-lock.js
 `--include-dev-deps` explicitly includes development dependencies; `--list-all-pkgs`
 retains the complete inventory. It does not need `node_modules`, a build, a database
 service or a successful Node.js test matrix. The job uses the same default checkout as
-the other Websrv jobs: on pull requests this is GitHub's test merge commit. Evidence
+the security and quality jobs: on pull requests this is GitHub's test merge commit.
+Tests and SonarQube use the PR head commit instead. Evidence
 records the checked-out revision and lockfile checksum.
 
 This scan covers the repository dependency inventory. The resulting SBOM is
@@ -617,6 +632,166 @@ After remediation, run the same scan and gate, then the build and test checks do
 below. Check informational findings as part of maintenance even though `LOW` and
 `MEDIUM` do not block. This CI integration does not upgrade dependencies automatically.
 
+## SonarQube Cloud analysis
+
+The integration follows [FWCloud API's helper](https://github.com/soltecsis/fwcloud-api/blob/1d0233cdd70d50e27f22dab9ca806ead2254149e/scripts/sonar-analysis.cjs):
+[`scripts/sonar-analysis.cjs`](../scripts/sonar-analysis.cjs) validates configuration,
+revision and coverage before the official scanner runs. The scanner performs analysis
+and Quality Gate polling; the helper records aggregate evidence.
+
+### Project and administrative setup
+
+Public SonarQube Cloud data, checked on 2026-11-04:
+
+| Item                | Observed value                                                                 |
+| ------------------- | ------------------------------------------------------------------------------ |
+| Project             | [`soltecsis_fwcloud-websrv`](https://sonarcloud.io/dashboard?id=soltecsis_fwcloud-websrv) in organization `soltecsis`, public. Both keys are set in [`sonar-project.properties`](../sonar-project.properties). |
+| Main branch         | `main`, last analyzed on 2026-10-28 (`e97e28f0`).                              |
+| Analysis method     | Automatic Analysis disabled (`sonar.autoscan.enabled=false`). While it was enabled, it analyzed PRs #98–#116, including Dependabot PRs, so the GitHub binding works. |
+| New code            | `previous_version` (`sonar.leak.period`), the inherited default.               |
+| Long-lived branches | Inherited default pattern `(branch\|release)-.*`. It matches neither `devel` nor `ENS`. |
+| Quality Gate        | Its name is not public (`403`). PR results show these conditions on new code: reliability, security and maintainability ratings A, at most 3 % duplicated lines and 100 % reviewed security hotspots. |
+
+Automatic Analysis explains why earlier PRs appear in SonarQube Cloud before this
+workflow runs. It analyzed the whole repository and imported no coverage, so those PR
+results do not reflect the scope below.
+
+Before the first CI analysis, a SonarQube organization/project administrator and a
+GitHub repository administrator must complete and record these steps:
+
+1. Confirm the project's main branch is GitHub's `main`.
+2. Confirm and assign the team's agreed Quality Gate and new-code definition. Reuse
+   the existing FWCloud policy; this change selects no thresholds or new policy. With
+   `previous_version`, new code only restarts when `sonar.projectVersion` changes, and
+   this integration does not set it.
+3. In **Administration → Analysis Method**, keep Automatic Analysis disabled and
+   select GitHub Actions. While Automatic Analysis is enabled, the CI scanner fails,
+   and so does `websrv-ci`.
+4. Mark `devel` and `ENS` as long-lived branches in the project's branch settings.
+   Confirm the plan covers branch and PR analysis for `main`, `devel` and `ENS`.
+   Analyze `main` before validating PRs.
+5. Generate a token with only the required analysis permission for this project.
+   Prefer a project-scoped organization token when supported by the plan; otherwise
+   use a dedicated account with Execute Analysis access limited to this project.
+6. Store it as the GitHub Actions secret `SONAR_TOKEN` under **Settings → Secrets and
+   variables → Actions**, or grant this repository access to an organization secret
+   of that name. Do not place it in properties, commands, reports or source control.
+7. Run branch and same-repository PR analyses and verify the LCOV import in SonarQube
+   Cloud. Verify that a failed Quality Gate fails both `sonar` and `websrv-ci`, and
+   that a fork PR skips `sonar` with the summary notice. Retain those run links as
+   setup evidence. Require `websrv-ci` as described in
+   [Required status check](#required-status-check).
+
+The administrative owner, agreed Quality Gate/new-code policy, long-lived branches,
+token/secret setup and live branch/PR validation remain pending confirmation. This repository change does not prove those external
+steps succeeded.
+
+See Sonar's [GitHub Actions setup and Quality Gate behavior](https://docs.sonarsource.com/sonarqube-cloud/analyzing-source-code/ci-based-analysis/github-actions-for-sonarcloud)
+and [token options](https://docs.sonarsource.com/sonarqube-cloud/administering-sonarcloud/managing-organization/scoped-organization-tokens).
+
+### Scope and reference coverage
+
+Application sources are `src/` and `config/`. Co-located TypeScript specs under `src/`
+and files under `test/` are classified as tests. Dependencies, generated `dist/`,
+coverage/reports, declaration files and scanner working files are excluded from source
+analysis. Coverage is imported from `coverage/lcov.info`; no second coverage run is
+generated by the analysis job. Jest collects coverage from `src/` only, so the LCOV has
+no records for `config/`. CI tooling in `scripts/` and `.github/` is not analyzed.
+
+The job downloads only `websrv-coverage-node22-<RUN_ID>` from its own workflow run
+into `coverage-input/`. The helper checks the baseline's repository, event, revision,
+PR head, run ID, Node.js 22 version, successful test counters and LCOV checksum against
+the downloaded files and checkout. It rejects missing/invalid coverage, unknown source
+paths and altered reports. A producer from an earlier attempt of the same run and
+revision is accepted for partial reruns; a future attempt or another run is rejected.
+
+The official action is pinned to
+`SonarSource/sonarqube-scan-action@d209202bc7d53ff1cc128f7f907dac145c9d6ae9`
+(v8.3.0), with CLI `8.1.0.6389` and signature verification enabled. The EU endpoint is
+`https://sonarcloud.io`. Properties set `sonar.qualitygate.wait=true` and
+`sonar.qualitygate.timeout=300`, and the helper passes both again on the command line,
+which takes precedence over the file. Scanner errors, authentication/configuration
+errors, timeouts and a failed Quality Gate all fail `sonar`; `websrv-ci` requires its
+success except on fork and Dependabot runs.
+Branch and PR parameters are derived from validated GitHub context.
+Preparation removes stale native task metadata. A successful scanner exit must also
+produce a fresh `.scannerwork/report-task.txt` for the configured project and server;
+otherwise evidence validation fails.
+
+The scanner reads `sonar-project.properties` with Java's `Properties` parser, which
+also accepts escapes, line continuations and Unicode whitespace. The helper therefore
+accepts only printable ASCII `key=value` lines without backslashes and only the keys
+in the file today. Every value except the organization, project key and timeout must
+match the copy in the helper, so change both files together. Other keys could change
+the scope, suppress issues or make the analyzer run another executable.
+
+### Credentials, fork and Dependabot runs, and evidence
+
+The policy follows FWCloud API's CI:
+
+| Run                                                          | `sonar`                                   | Result required by `websrv-ci`       |
+| ------------------------------------------------------------ | ----------------------------------------- | ------------------------------------ |
+| Push to a [trigger branch](#triggers), except by Dependabot  | Runs after all other jobs succeed         | `success`                            |
+| PR from a branch of this repository, except Dependabot PRs   | Runs after all other jobs succeed         | `success`                            |
+| PR from a fork, or any Dependabot run                        | Skipped: GitHub provides no `SONAR_TOKEN` | `skipped`, with a notice in the summary |
+
+The `sonar` job condition and `SONAR_REQUIRED` in `websrv-ci` use the same expression;
+`npm run test:ci-tools` fails if they differ. Fork and Dependabot PRs must still pass
+every other job, but get no Quality Gate before merge. The push after merge runs the
+analysis, and a failed gate fails `websrv-ci` on the target branch. There is no
+`pull_request_target` or privileged follow-up workflow. On any other run, a missing or
+empty `SONAR_TOKEN` fails the first `sonar` step; it never enables the skip.
+
+`SONAR_TOKEN` is set only in the environment of the credential check and the official
+scanner step. This prevents accidental exposure in other steps; it does not isolate
+the token from code that runs earlier in the same job. Every action in `sonar` is
+pinned by commit SHA. Avoid shell tracing, scanner debug output and printing
+environment variables. After a scan attempt, the workflow uploads only
+`reports/sonar/metadata.json` as
+`websrv-sonarqube-<RUN_ID>-<ATTEMPT>`, kept for 90 days. It contains aggregate
+revision/run, coverage and scanner outcome evidence; scanner logs, `.scannerwork` and
+analysis credentials are not artifacts. A scanner that exits successfully without
+fresh task metadata is recorded as `FAILED_OR_INCOMPLETE` and fails the job.
+
+Accepted risk: a PR from a branch of this repository runs its own copy of the
+workflow, helper and tests with the token available, so the helper checks guard
+against mistakes, not against a malicious author with write access. Code review is
+the control. Require reviews for `.github/`, `scripts/` and `sonar-project.properties`
+(for example with a `CODEOWNERS` file), and use a token limited to Execute Analysis on
+this project. The LCOV checksum proves that the file was not altered after the test
+job, not that its coverage is genuine.
+
+### Local analysis
+
+Use Node.js 22, generate a complete local baseline with the reference commands in
+[Running CI locally](#running-ci-locally), and install the same official SonarScanner CLI
+version using the [official CLI installation instructions](https://docs.sonarsource.com/sonarqube-cloud/analyzing-source-code/scanners/sonarscanner-cli)
+and its published integrity verification. Keep the analyzed checkout and
+coverage reports together. Then run from the repository root:
+
+```bash
+# Read the token without adding its value to shell history.
+read -rsp 'SonarQube token: ' SONAR_TOKEN
+echo
+export SONAR_TOKEN
+node scripts/sonar-analysis.cjs
+unset SONAR_TOKEN
+```
+
+The default command validates the local baseline and invokes `sonar-scanner` from
+`PATH`. Set `SONAR_SCANNER_BINARY` to an installed scanner executable if needed. The
+current Git branch is analyzed; set `SONAR_BRANCH` explicitly for a detached checkout.
+Branch names must match the helper's supported letters, numbers, `/`, `_`, `.` and `-`
+format and start with a letter or number. The helper refuses `main`, `devel` and
+`ENS`, whose results come from CI, and uncommitted or untracked files in `src/`,
+`config/`, `test/` or `sonar-project.properties`. The
+token stays in the scanner environment; do not pass it as a CLI argument. The command
+waits for the configured Quality Gate and returns failure for an unsuccessful or
+incomplete analysis. It requires network access and Execute Analysis permission, and
+publishes results to the configured Cloud project. Local results do not replace the
+required GitHub Actions check. `node scripts/sonar-analysis.cjs prepare` and `record`
+are the CI preparation/evidence commands, not standalone analysis commands.
+
 ## Running CI locally
 
 Run the same commands as CI from the repository root. `npm ci` deletes `node_modules`
@@ -669,19 +844,25 @@ npm run format:fix
 
 Use `websrv-ci` as the only required check for each protected branch listed in
 [Triggers](#triggers). Do not require the
-individual `quality`, `gitleaks`, `trivy` or `test (Node.js <x>)` checks: matrix check names change when the matrix
-changes, while `websrv-ci` stays the same.
+individual `quality`, `gitleaks`, `trivy`, `sonar` or `test (Node.js <x>)` checks: matrix check names change when the matrix
+changes, while `websrv-ci` stays the same. Do not require the check posted by the
+SonarQube Cloud GitHub App either: fork and Dependabot PRs never report it.
 
 `websrv-ci` uses `if: always()`, so it runs even when a job it depends on fails. It
 succeeds only if every job in its `needs` list ends with `success`. A result of
-`failure`, `cancelled` or `skipped` makes it fail. When adding a new required job, add it
-to `needs`. The result check covers it automatically.
+`failure`, `cancelled` or `skipped` makes it fail. The only exception is `sonar`, which
+must be `skipped` on fork and Dependabot runs (see
+[Credentials, fork and Dependabot runs, and evidence](#credentials-fork-and-dependabot-runs-and-evidence)).
+When adding a new required job, add it to `needs`. The result check covers it
+automatically.
 
 To configure it (repository admin):
 
 1. Go to **Settings → Branches** and add or edit a branch protection rule for each
    protected branch. With rulesets, use **Settings → Rules → Rulesets** instead.
-2. Enable **Require status checks to pass before merging**.
+2. Enable **Require status checks to pass before merging** and **Require branches to be
+   up to date before merging**. Tests and SonarQube run on the PR head commit, not on
+   GitHub's merge commit, so the head must include the latest target branch.
 3. Search for `websrv-ci` and add it. GitHub only lists checks that have run in the last
    7 days, so the workflow must have run at least once (for example, on a pull request).
 4. Save the rule.
@@ -705,6 +886,12 @@ To configure it (repository admin):
 | Trivy evidence validation fails or the artifact is partial | Inspect `metadata.json` and step outcomes in `context.txt`. Missing/invalid reports, an empty npm inventory, differing SBOM packages or a missing database timestamp cannot satisfy the check. Reproduce using [Local dependency scan](#local-dependency-scan). |
 | The coverage artifact has no `baseline.json` | The Node.js 22 run failed or its coverage was invalid, so no baseline was recorded. See that job's summary. |
 | `sha256sum -c reports/coverage/lcov.sha256` fails | `coverage/lcov.info` is not the file the baseline was recorded for. Download the artifact again, unmodified. |
+| `sonar` reports that `SONAR_TOKEN` is unavailable | Configure the Actions secret or grant this repository access to the organization secret. Only fork and Dependabot runs may skip analysis, and they do so before this step. |
+| `sonar` is skipped on a PR from this repository | A job it depends on did not succeed. `websrv-ci` lists that job; fix it and re-run. |
+| The scanner fails because Automatic Analysis is enabled | Disable it in **Administration → Analysis Method** (step 3 of [Project and administrative setup](#project-and-administrative-setup)). |
+| `sonar` rejects coverage provenance or cannot download the artifact | Check the Node.js 22 test job and baseline. Coverage must come from the same run/revision; reproduce or rerun the reference job after fixing failed tests/reports. |
+| The scanner reports invalid project/configuration or unauthorized access | Verify the project identifiers, GitHub binding, token permissions and branch/PR entitlement in [Project and administrative setup](#project-and-administrative-setup). |
+| SonarQube Quality Gate fails or polling times out | Inspect the scanner step and project dashboard. Findings continue to block under the agreed gate; resolve operational/time-out errors before rerunning. This integration does not change gate thresholds or fix existing findings. |
 | `websrv-ci` fails but no job failed | A required job was cancelled or skipped. Check the job list in the run summary, then re-run the workflow. A cancelled run on an old commit can be ignored if a newer run exists. |
 | `websrv-ci` stays at "Expected — Waiting for status to be reported" | The workflow did not run for that commit. Usually the PR targets a branch that is not listed in [Triggers](#triggers). |
 | `websrv-ci` does not appear when configuring branch protection | The check has not run in the last 7 days. Open or update a pull request against one of the trigger branches first. |
