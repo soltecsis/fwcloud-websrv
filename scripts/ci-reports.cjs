@@ -35,7 +35,7 @@ const metadata = {
   schemaVersion: 1,
   generatedAt: new Date().toISOString(),
   repository: env.GITHUB_REPOSITORY || null,
-  // The checked-out revision. On pull requests, GitHub's test merge commit.
+  // The checked-out revision. On pull requests, the tested PR head commit.
   commit: execFileSync('git', ['rev-parse', 'HEAD'], {
     encoding: 'utf8',
   }).trim(),
