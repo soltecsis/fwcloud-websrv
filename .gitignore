@@ -22,6 +22,7 @@ nohup.out
 /coverage
 /reports
 /.nyc_output
+/.scannerwork
 
 # IDEs and editors
 /.idea
